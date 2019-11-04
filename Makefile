@@ -40,7 +40,7 @@ LDSCRIPT	= $(BINARY).ld
 LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJSL		= $(BINARY).o hwinit.o stm32scheduler.o params.o terminal.o terminal_prj.o \
            my_string.o digio.o my_fp.o printf.o anain.o leafbms.o \
-           temp_meas.o param_save.o errormessage.o stm32_can.o
+           param_save.o errormessage.o stm32_can.o
 OBJS     = $(subst $(space),$(space)$(OUT_DIR)/, $(OBJSL))
 vpath %.c src/project src/generic
 vpath %.cpp src/project src/generic

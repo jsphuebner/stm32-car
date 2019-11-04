@@ -30,7 +30,6 @@
 #include "digio.h"
 #include "hwinit.h"
 #include "anain.h"
-#include "temp_meas.h"
 #include "param_save.h"
 #include "my_math.h"
 #include "errormessage.h"

@@ -48,14 +48,12 @@
 		<Unit filename="include/generic/anain.h" />
 		<Unit filename="include/generic/digio.h" />
 		<Unit filename="include/generic/errormessage.h" />
-		<Unit filename="include/generic/fu.h" />
 		<Unit filename="include/generic/my_fp.h" />
 		<Unit filename="include/generic/my_math.h" />
 		<Unit filename="include/generic/my_string.h" />
 		<Unit filename="include/generic/param_save.h" />
 		<Unit filename="include/generic/params.h" />
 		<Unit filename="include/generic/printf.h" />
-		<Unit filename="include/generic/sine_core.h" />
 		<Unit filename="include/generic/stm32scheduler.h" />
 		<Unit filename="include/generic/terminal.h" />
 		<Unit filename="include/project/anain_prj.h" />
@@ -63,17 +61,13 @@
 		<Unit filename="include/project/errormessage_prj.h" />
 		<Unit filename="include/project/hwdefs.h" />
 		<Unit filename="include/project/hwinit.h" />
-		<Unit filename="include/project/inc_encoder.h" />
 		<Unit filename="include/project/leafbms.h" />
 		<Unit filename="include/project/param_prj.h" />
-		<Unit filename="include/project/pwmgeneration.h" />
 		<Unit filename="include/project/stm32_can.h" />
-		<Unit filename="include/project/temp_meas.h" />
 		<Unit filename="include/project/throttle.h" />
 		<Unit filename="src/generic/anain.cpp" />
 		<Unit filename="src/generic/digio.cpp" />
 		<Unit filename="src/generic/errormessage.cpp" />
-		<Unit filename="src/generic/fu.cpp" />
 		<Unit filename="src/generic/my_fp.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -85,18 +79,14 @@
 		<Unit filename="src/generic/printf.c">
 			<Option compilerVar="CC" />
 		</Unit>
-		<Unit filename="src/generic/sine_core.cpp" />
 		<Unit filename="src/generic/stm32scheduler.cpp" />
 		<Unit filename="src/generic/terminal.c">
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="src/project/hwinit.cpp" />
-		<Unit filename="src/project/inc_encoder.cpp" />
 		<Unit filename="src/project/leafbms.cpp" />
-		<Unit filename="src/project/pwmgeneration.cpp" />
 		<Unit filename="src/project/stm32_can.cpp" />
 		<Unit filename="src/project/stm32_car.cpp" />
-		<Unit filename="src/project/temp_meas.cpp" />
 		<Unit filename="src/project/terminal_prj.cpp" />
 		<Unit filename="src/project/throttle.cpp" />
 		<Unit filename="stm32_sine.ld">
