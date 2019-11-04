@@ -1,0 +1,13 @@
+language: cpp
+install: make get-deps
+
+script:
+  - make
+
+addons:
+  apt:
+    sources:
+    - sourceline: 'ppa:team-gcc-arm-embedded/ppa'
+    packages:
+    - gcc-arm-embedded
+

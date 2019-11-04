@@ -1,0 +1,5 @@
+*.o
+obj
+linker.map
+sinus.layout
+stm32_sine*
