@@ -84,6 +84,18 @@ static void PrintVoltages(char* arg)
    }
 }
 
+static void PrintCanMap(Param::PARAM_NUM param, int canid, int offset, int length, s32fp gain, bool rx)
+{
+   const char* name = Param::GetAttrib(param)->name;
+   printf("can ");
+
+   if (rx)
+      printf("rx ");
+   else
+      printf("tx ");
+   printf("%s %d %d %d %d\r\n", name, canid, offset, length, gain);
+}
+
 //cantx param id offset len gain
 static void MapCan(char *arg)
 {
@@ -95,6 +107,12 @@ static void MapCan(char *arg)
    const int numArgs = 4;
 
    arg = my_trim(arg);
+
+   if (arg[0] == 'p')
+   {
+      Can::IterateCanMap(PrintCanMap);
+      return;
+   }
 
    if (arg[0] == 'c')
    {

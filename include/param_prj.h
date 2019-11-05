@@ -68,7 +68,7 @@
 #define POTMODE_DUALCHANNEL 1
 #define POTMODE_CAN         2
 
-#define VER 0.11.B
+#define VER 0.13.B
 #define VERSTR STRINGIFY(4=VER)
 
 enum _modes
@@ -180,7 +180,5 @@ extern const char* errorListString;
     VALUE_ENTRY(din_reverse, ONOFF,   2028 ) \
     VALUE_ENTRY(din_bms,     ONOFF,   2032 ) \
     VALUE_ENTRY(cpuload,     "%",     2035 ) \
-    VALUE_ENTRY(seq1,        "dig",   2041 ) \
-    VALUE_ENTRY(test,        "dig",   20041 ) \
 
 //Next value Id: 2051

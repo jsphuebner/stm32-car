@@ -126,7 +126,7 @@ void LeafBMS::Send10msMessages()
    canData[1] |= crc << 24;
    Can::Send(0x1D4, canData);
 
-   canData[1] = run10ms << 9;
+   canData[1] = run10ms << 16;
    Can::Send(0x1F2, canData);
 
    run10ms = (run10ms + 1) & 3;
@@ -139,7 +139,7 @@ void LeafBMS::Send100msMessages()
    //TODO: charger power?
    Can::Send(0x390, canData);
 
-   canData[0] = run100ms << 25;
+   canData[0] = run100ms << 24;
    canData[1] = 0xB2;
    crc = Crc8ForHCM(5, (uint8_t*)canData);
    canData[1] |= crc << 8;
