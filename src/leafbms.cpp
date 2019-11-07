@@ -56,9 +56,11 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2])
    {
       s32fp cur = (int16_t)(bytes[0] << 8) + (bytes[1] & 0xE0);
       s32fp udc = ((bytes[2] << 8) + (bytes[3] & 0xC0)) >> 1;
+      int soh = bytes[4] & 0x7F;
 
       Param::SetFlt(Param::idc, cur / 2);
       Param::SetFlt(Param::udcbms, udc / 2);
+      Param::SetInt(Param::soh, soh);
    }
    else if (id == 0x1DC)
    {
@@ -67,6 +69,12 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2])
 
       Param::SetFlt(Param::dislimit, dislimit / 4);
       Param::SetFlt(Param::chglimit, chglimit / 4);
+   }
+   else if (id == 0x55B)
+   {
+      s32fp soc = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
+
+      Param::SetFlt(Param::soc, soc / 10);
    }
 }
 
@@ -129,6 +137,11 @@ void LeafBMS::Send10msMessages()
    canData[1] = run10ms << 16;
    Can::Send(0x1F2, canData);
 
+   canData[0] = 180; //360V input voltage
+   crc = Crc8ForHCM(7, (uint8_t*)canData);
+   canData[1] |= crc << 24;
+   Can::Send(0x1DA, canData);
+
    run10ms = (run10ms + 1) & 3;
 }
 
@@ -144,6 +157,10 @@ void LeafBMS::Send100msMessages()
    crc = Crc8ForHCM(5, (uint8_t*)canData);
    canData[1] |= crc << 8;
    Can::Send(0x50C, canData);
+
+   canData[0] = 0;
+   canData[1] = 20 << 24; //outside temp
+   Can::Send(0x54C, canData);
 
    run100ms = (run100ms + 1) & 3;
 }

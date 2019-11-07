@@ -115,7 +115,7 @@ extern const char* errorListString;
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 96
+//Next param id (increase when adding new parameter!): 98
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_DERATE,  bmslimhigh,  "%",       0,      100,    50,     55  ) \
@@ -139,8 +139,10 @@ extern const char* errorListString;
     PARAM_ENTRY(CAT_CONTACT, vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
     PARAM_ENTRY(CAT_CONTACT, oilthresh,   "dig",     0,      10000,  900,    90  ) \
     PARAM_ENTRY(CAT_CONTACT, oilhyst,     "dig",     0,      10000,  500,    91  ) \
-    PARAM_ENTRY(CAT_CONTACT, udcthresh,   "dig",     0,      500,    380,    92  ) \
-    PARAM_ENTRY(CAT_CONTACT, udchyst,     "dig",     0,      500,    360,    93  ) \
+    PARAM_ENTRY(CAT_CONTACT, udcthresh,   "V",       0,      500,    380,    92  ) \
+    PARAM_ENTRY(CAT_CONTACT, udchyst,     "V",       0,      500,    360,    93  ) \
+    PARAM_ENTRY(CAT_CONTACT, ucellthresh, "mV",      3000,   4200,   4000,   96  ) \
+    PARAM_ENTRY(CAT_CONTACT, ucellhyst,   "mV",      3000,   4200,   3900,   97  ) \
     PARAM_ENTRY(CAT_CONTACT, tripmode,    TRIPMODES, 0,      2,      0,      86  ) \
     PARAM_ENTRY(CAT_CONTACT, cruiselight, CRUISELIGHT,0,     255,    0,      94  ) \
     PARAM_ENTRY(CAT_CONTACT, errlights,   ERRLIGHTS, 0,      255,    0,      95  ) \
@@ -161,6 +163,9 @@ extern const char* errorListString;
     VALUE_ENTRY(chglimit,    "kW",    2049 ) \
     VALUE_ENTRY(dislimit,    "kW",    2050 ) \
     VALUE_ENTRY(idc,         "A",     2047 ) \
+    VALUE_ENTRY(power,       "kW",    2051 ) \
+    VALUE_ENTRY(soc,         "%",     2052 ) \
+    VALUE_ENTRY(soh,         "%",     2053 ) \
     VALUE_ENTRY(speed,       "rpm",   2012 ) \
     VALUE_ENTRY(speedmod,    "rpm",   2013 ) \
     VALUE_ENTRY(turns,       "",      2037 ) \
@@ -181,4 +186,4 @@ extern const char* errorListString;
     VALUE_ENTRY(din_bms,     ONOFF,   2032 ) \
     VALUE_ENTRY(cpuload,     "%",     2035 ) \
 
-//Next value Id: 2051
+//Next value Id: 2054

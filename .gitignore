@@ -2,4 +2,5 @@
 obj
 linker.map
 sinus.layout
-stm32?car*
+*.hex
+*.bin
