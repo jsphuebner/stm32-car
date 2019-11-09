@@ -2,7 +2,7 @@
 This firmware is a hacky mishmash of VW and Nissan CAN code. It talks to the Nissan BMS (aka LBC) to find out cell voltages and such. It also produces all messages needed for satisfying the various controllers in newer VW cars (my testbed is a 2004 Touran). That means all warning lights are off.
 
 # Features
-- Send all messages necessary to make the DSC ligth go off
+- Send all messages necessary to make the DSC light go off
 - Fake the oil pressure sensor depending on motor rpm
 - Map the electric motor speed onto the speed dial
 - Map the electric motor temperature onto the temp dial
@@ -38,7 +38,7 @@ Send these commands:
 
 # Compiling
 You will need the arm-none-eabi toolchain: https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads
-The only external depedency is libopencm3 which I forked. You can download and build this dependency by typing
+The only external depedencies are libopencm3 and libopeninv. You can download and build this dependency by typing
 
 `make get-deps`
 
