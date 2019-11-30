@@ -289,6 +289,8 @@ extern "C" int main(void)
    Can::RegisterUserMessage(0x1DB);
    Can::RegisterUserMessage(0x1DC);
    Can::RegisterUserMessage(0x55B);
+   Can::RegisterUserMessage(0x5BC);
+   Can::RegisterUserMessage(0x5C0);
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;

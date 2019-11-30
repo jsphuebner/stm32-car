@@ -26,6 +26,7 @@ class LeafBMS
       static void DecodeCAN(int id, uint32_t data[2]);
       static void RequestNextFrame();
       static uint16_t GetCellVoltage(int idx);
+      static bool GetCellShunt(int idx);
       static void Send10msMessages();
       static void Send100msMessages();
       static const int NUMCELLS = 96;
@@ -35,6 +36,7 @@ class LeafBMS
       static int bmsGrp;
       static int bmsGrpIndex;
       static uint8_t voltBytes[192];
+      static uint8_t shuntBits[12];
       static uint8_t run10ms;
       static uint8_t run100ms;
 };

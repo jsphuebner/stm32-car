@@ -162,6 +162,7 @@ extern const char* errorListString;
     VALUE_ENTRY(udcbms,      "V",     2048 ) \
     VALUE_ENTRY(chglimit,    "kW",    2049 ) \
     VALUE_ENTRY(dislimit,    "kW",    2050 ) \
+    VALUE_ENTRY(lbcdtc,      "",      2050 ) \
     VALUE_ENTRY(idc,         "A",     2047 ) \
     VALUE_ENTRY(power,       "kW",    2051 ) \
     VALUE_ENTRY(soc,         "%",     2052 ) \
@@ -184,6 +185,7 @@ extern const char* errorListString;
     VALUE_ENTRY(din_forward, ONOFF,   2027 ) \
     VALUE_ENTRY(din_reverse, ONOFF,   2028 ) \
     VALUE_ENTRY(din_bms,     ONOFF,   2032 ) \
+    VALUE_ENTRY(din_bmslock, ONOFF,   2054 ) \
     VALUE_ENTRY(cpuload,     "%",     2035 ) \
 
-//Next value Id: 2054
+//Next value Id: 2055

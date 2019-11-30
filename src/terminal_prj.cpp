@@ -82,6 +82,10 @@ static void PrintVoltages(char* arg)
    {
       printf("%d: %d\r\n", i, LeafBMS::GetCellVoltage(i));
    }
+   for (int i = 0; i < LeafBMS::NUMCELLS; i++)
+   {
+      printf("Shunt %d: %d\r\n", i, LeafBMS::GetCellShunt(i));
+   }
 }
 
 static void PrintCanMap(Param::PARAM_NUM param, int canid, int offset, int length, s32fp gain, bool rx)
