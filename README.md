@@ -7,12 +7,13 @@ This firmware is a hacky mishmash of VW and Nissan CAN code. It talks to the Nis
 - Map the electric motor speed onto the speed dial
 - Map the electric motor temperature onto the temp dial
 - Map the momentary electric power onto the fuel economy display
-- Read key switch, brake switch (and to be done cruise control buttons) from CAN bus
+- Read key switch, brake switch and cruise control buttons from CAN bus
 - Read brake vacuum sensor and control vacuum pump
 - Read throttle pedal and put it on the CAN bus
 - Read individual cell voltages from Nissan Leaf BMS
 - Read SoC, SoH etc. from the Nissan Leaf BMS
 - Control inverter charge mode depending on battery state
+- Control analog fuel gauge via two current source channels
 
 # CAN configuration
 Not all CAN messages are hard coded, some are configured via the generic interface. The parameter names are strange, as I just used some left over stuff from the inverter firmware.
