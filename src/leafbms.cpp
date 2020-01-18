@@ -30,7 +30,7 @@ int LeafBMS::bmsGrpIndex = -1;
 uint8_t LeafBMS::run10ms = 0;
 uint8_t LeafBMS::run100ms = 0;
 uint8_t LeafBMS::voltBytes[NUMCELLS * 2];
-uint8_t LeafBMS::shuntBits[12];
+uint8_t LeafBMS::statusBits[NUMCELLS / 4];
 
 void LeafBMS::DecodeCAN(int id, uint32_t data[2])
 {
@@ -59,28 +59,23 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2])
       {
          if (bmsGrpIndex == 0)
          {
-            shuntBits[0] = (bytes[4] & 0xF) | ((bytes[5] & 0xF) << 4);
-            shuntBits[1] = (bytes[6] & 0xF) | ((bytes[7] & 0xF) << 4);
+            for (int i = 0; i < 4; i++)
+               statusBits[i] = bytes[4 + i];
          }
          else if (bmsGrpIndex == 1)
          {
-            shuntBits[2] = (bytes[1] & 0xF) | ((bytes[2] & 0xF) << 4);
-            shuntBits[3] = (bytes[3] & 0xF) | ((bytes[4] & 0xF) << 4);
-            shuntBits[4] = (bytes[5] & 0xF) | ((bytes[6] & 0xF) << 4);
-            shuntBits[5] = (bytes[7] & 0xF);
+            for (int i = 0; i < 7; i++)
+               statusBits[4 + i] = bytes[1 + i];
          }
          else if (bmsGrpIndex == 2)
          {
-            shuntBits[5] |= ((bytes[1] & 0xF) << 4);
-            shuntBits[6] = (bytes[2] & 0xF) | ((bytes[3] & 0xF) << 4);
-            shuntBits[7] = (bytes[4] & 0xF) | ((bytes[5] & 0xF) << 4);
-            shuntBits[8] = (bytes[6] & 0xF) | ((bytes[7] & 0xF) << 4);
+            for (int i = 0; i < 7; i++)
+               statusBits[11 + i] = bytes[1 + i];
          }
          else if (bmsGrpIndex == 3)
          {
-            shuntBits[9] = (bytes[1] & 0xF) | ((bytes[2] & 0xF) << 4);
-            shuntBits[10] = (bytes[3] & 0xF) | ((bytes[4] & 0xF) << 4);
-            shuntBits[11] = (bytes[5] & 0xF) | ((bytes[6] & 0xF) << 4);
+            for (int i = 0; i < 6; i++)
+               statusBits[18 + i] = bytes[1 + i];
          }
       }
    }
@@ -185,16 +180,17 @@ uint16_t LeafBMS::GetCellVoltage(int idx)
 {
    if (idx < NUMCELLS)
    {
-      return voltBytes[2 * idx] << 8 | voltBytes[2 * idx + 1];
+      return (voltBytes[2 * idx] << 8 | voltBytes[2 * idx + 1]) & 0x1FFF;
    }
    return -1;
 }
 
-bool LeafBMS::GetCellShunt(int idx)
+int LeafBMS::GetCellStatus(int idx)
 {
    if (idx < NUMCELLS)
    {
-      return (shuntBits[idx >> 3] & 1 << (idx & 0x7)) != 0;
+      int shift = (idx & 3) * 2;
+      return (statusBits[idx >> 2] >> shift) & 0x3;
    }
    return -1;
 }
@@ -202,9 +198,10 @@ bool LeafBMS::GetCellShunt(int idx)
 void LeafBMS::Send10msMessages()
 {
    uint32_t canData[2] = { 0, 0 };
+   int relay = Param::GetInt(Param::opmode) != MOD_OFF;
    uint8_t crc;
 
-   canData[1] = run10ms << 6 | 1 << 2 | 1 << 14;
+   canData[1] = run10ms << 6 | 1 << 2 | relay << 14;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;
    Can::Send(0x1D4, canData);

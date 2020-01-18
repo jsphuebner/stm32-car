@@ -84,7 +84,7 @@ static void PrintVoltages(char* arg)
    }
    for (int i = 0; i < LeafBMS::NUMCELLS; i++)
    {
-      printf("Shunt %d: %d\r\n", i, LeafBMS::GetCellShunt(i));
+      printf("Shunt %d: %d\r\n", i, LeafBMS::GetCellStatus(i));
    }
 }
 

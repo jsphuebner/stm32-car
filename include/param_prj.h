@@ -36,8 +36,8 @@
 #define CANIOS       "1=Cruise, 2=Start, 4=Brake, 8=Fwd, 16=Rev, 32=Bms"
 #define CANPERIODS   "0=100ms, 1=10ms"
 #define HWREVS       "0=Rev1, 1=Rev2, 2=Rev3, 3=Tesla"
-#define CRUISELIGHT  "0=Off, 4=On"
 #define ERRLIGHTS    "0=Off, 4=EPC, 8=engine"
+#define CRUISESTATES "0=None, 1=On, 2=Disable, 4=SetN, 8=SetP"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -68,10 +68,10 @@
 #define POTMODE_DUALCHANNEL 1
 #define POTMODE_CAN         2
 
-#define VER 0.13.B
+#define VER 0.16.B
 #define VERSTR STRINGIFY(4=VER)
 
-enum _modes
+enum modes
 {
    MOD_OFF = 0,
    MOD_RUN,
@@ -81,6 +81,14 @@ enum _modes
    MOD_SINE,
    MOD_ACHEAT,
    MOD_LAST
+};
+
+enum cruisestate
+{
+   CRUISE_ON = 1,
+   CRUISE_DISABLE = 2,
+   CRUISE_SETN = 4,
+   CRUISE_SETP = 8
 };
 
 enum _tripmodes
@@ -125,10 +133,6 @@ extern const char* errorListString;
     PARAM_ENTRY(CAT_THROTTLE,pot2min,     "dig",     0,      4095,   4095,   63  ) \
     PARAM_ENTRY(CAT_THROTTLE,pot2max,     "dig",     0,      4095,   4095,   64  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmode,     POTMODES,  0,      2,      0,      82  ) \
-    PARAM_ENTRY(CAT_THROTTLE,throtramp,   "%/10ms",  1,      100,    100,    81  ) \
-    PARAM_ENTRY(CAT_THROTTLE,throtramprpm,"rpm",     0,      20000,  20000,  85  ) \
-    PARAM_ENTRY(CAT_THROTTLE,ampmin,      "%",       0,      100,    10,     4   ) \
-    PARAM_ENTRY(CAT_THROTTLE,slipstart,   "%",       10,     100,    50,     90  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
     PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
     PARAM_ENTRY(CAT_REGEN,   brknom,      "%",       0,      100,    30,     19  ) \
@@ -144,48 +148,52 @@ extern const char* errorListString;
     PARAM_ENTRY(CAT_CONTACT, ucellthresh, "mV",      3000,   4200,   4000,   96  ) \
     PARAM_ENTRY(CAT_CONTACT, ucellhyst,   "mV",      3000,   4200,   3900,   97  ) \
     PARAM_ENTRY(CAT_CONTACT, tripmode,    TRIPMODES, 0,      2,      0,      86  ) \
-    PARAM_ENTRY(CAT_CONTACT, cruiselight, CRUISELIGHT,0,     255,    0,      94  ) \
+    PARAM_ENTRY(CAT_CONTACT, cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT, errlights,   ERRLIGHTS, 0,      255,    0,      95  ) \
     PARAM_ENTRY(CAT_PWM,     pwmfunc,     PWMFUNCS,  0,      3,      0,      58  ) \
     PARAM_ENTRY(CAT_PWM,     pwmgain,     "",        -100000,100000, 100,    40  ) \
     PARAM_ENTRY(CAT_PWM,     pwmofs,      "dig",     -65535, 65535,  0,      41  ) \
+    PARAM_ENTRY(CAT_PWM,     dcoffset,    "dig",     0,      4096,   1000,   1   ) \
+    PARAM_ENTRY(CAT_PWM,     dcgain,      "dig",     0,      4096,   2000,   2   ) \
     PARAM_ENTRY(CAT_COMM,    canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,    canperiod,   CANPERIODS,0,      1,      0,      88  ) \
-    VALUE_ENTRY(version,     VERSTR,  2039 ) \
-    VALUE_ENTRY(hwver,       HWREVS,  2036 ) \
-    VALUE_ENTRY(opmode,      OPMODES, 2000 ) \
-    VALUE_ENTRY(lasterr,     errorListString,  2038 ) \
-    VALUE_ENTRY(batmin,      "mV",    2044 ) \
-    VALUE_ENTRY(batmax,      "mV",    2045 ) \
-    VALUE_ENTRY(batavg,      "mV",    2046 ) \
-    VALUE_ENTRY(udcinv,      "V",     2001 ) \
-    VALUE_ENTRY(udcbms,      "V",     2048 ) \
-    VALUE_ENTRY(chglimit,    "kW",    2049 ) \
-    VALUE_ENTRY(dislimit,    "kW",    2050 ) \
-    VALUE_ENTRY(lbcdtc,      "",      2050 ) \
-    VALUE_ENTRY(idc,         "A",     2047 ) \
-    VALUE_ENTRY(power,       "kW",    2051 ) \
-    VALUE_ENTRY(soc,         "%",     2052 ) \
-    VALUE_ENTRY(soh,         "%",     2053 ) \
-    VALUE_ENTRY(speed,       "rpm",   2012 ) \
-    VALUE_ENTRY(speedmod,    "rpm",   2013 ) \
-    VALUE_ENTRY(turns,       "",      2037 ) \
-    VALUE_ENTRY(pot,         "dig",   2015 ) \
-    VALUE_ENTRY(pot2,        "dig",   2016 ) \
-    VALUE_ENTRY(potnom,      "%",     2017 ) \
-    VALUE_ENTRY(vacuum,      "dig",   2018 ) \
-    VALUE_ENTRY(tmphs,       "°C",    2019 ) \
-    VALUE_ENTRY(tmpm,        "°C",    2020 ) \
-    VALUE_ENTRY(tmpmod,      "dig",   2040 ) \
-    VALUE_ENTRY(uaux,        "V",     2021 ) \
-    VALUE_ENTRY(canio,       CANIOS,  2022 ) \
-    VALUE_ENTRY(din_cruise,  ONOFF,   2023 ) \
-    VALUE_ENTRY(din_start,   ONOFF,   2024 ) \
-    VALUE_ENTRY(din_brake,   ONOFF,   2025 ) \
-    VALUE_ENTRY(din_forward, ONOFF,   2027 ) \
-    VALUE_ENTRY(din_reverse, ONOFF,   2028 ) \
-    VALUE_ENTRY(din_bms,     ONOFF,   2032 ) \
-    VALUE_ENTRY(din_bmslock, ONOFF,   2054 ) \
-    VALUE_ENTRY(cpuload,     "%",     2035 ) \
+    VALUE_ENTRY(version,      VERSTR,  2039 ) \
+    VALUE_ENTRY(hwver,        HWREVS,  2036 ) \
+    VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
+    VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
+    VALUE_ENTRY(lbcdtc,       "",      2050 ) \
+    VALUE_ENTRY(batmin,       "mV",    2044 ) \
+    VALUE_ENTRY(batmax,       "mV",    2045 ) \
+    VALUE_ENTRY(batavg,       "mV",    2046 ) \
+    VALUE_ENTRY(udcinv,       "V",     2001 ) \
+    VALUE_ENTRY(udcbms,       "V",     2048 ) \
+    VALUE_ENTRY(chglimit,     "kW",    2049 ) \
+    VALUE_ENTRY(dislimit,     "kW",    2050 ) \
+    VALUE_ENTRY(power,        "kW",    2051 ) \
+    VALUE_ENTRY(idc,          "A",     2047 ) \
+    VALUE_ENTRY(soc,          "%",     2052 ) \
+    VALUE_ENTRY(soh,          "%",     2053 ) \
+    VALUE_ENTRY(speed,        "rpm",   2012 ) \
+    VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
+    VALUE_ENTRY(turns,        "",      2037 ) \
+    VALUE_ENTRY(pot,          "dig",   2015 ) \
+    VALUE_ENTRY(pot2,         "dig",   2016 ) \
+    VALUE_ENTRY(potnom,       "%",     2017 ) \
+    VALUE_ENTRY(vacuum,       "dig",   2018 ) \
+    VALUE_ENTRY(tmphs,        "°C",    2019 ) \
+    VALUE_ENTRY(tmpm,         "°C",    2020 ) \
+    VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
+    VALUE_ENTRY(uaux,         "V",     2021 ) \
+    VALUE_ENTRY(canio,        CANIOS,  2022 ) \
+    VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
+    VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
+    VALUE_ENTRY(din_cruise,   ONOFF,   2023 ) \
+    VALUE_ENTRY(din_start,    ONOFF,   2024 ) \
+    VALUE_ENTRY(din_brake,    ONOFF,   2025 ) \
+    VALUE_ENTRY(din_forward,  ONOFF,   2027 ) \
+    VALUE_ENTRY(din_reverse,  ONOFF,   2028 ) \
+    VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
+    VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
+    VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2055
+//Next value Id: 2060

@@ -46,8 +46,79 @@ HWREV hwRev; //Hardware variant of board we are running on
 
 static Stm32Scheduler* scheduler;
 
+static void Ms500Task(void)
+{
+   static modes modeLast = MOD_OFF;
+   static int blinks = 0;
+   modes mode = (modes)Param::GetInt(Param::opmode);
+   bool cruiseLight = Param::GetBool(Param::cruiselight);
+
+   if (mode == MOD_RUN && modeLast == MOD_OFF)
+   {
+      blinks = 10;
+   }
+   if (blinks > 0)
+   {
+      blinks--;
+      Param::SetInt(Param::cruiselight, !cruiseLight);
+   }
+   else if (Param::GetInt(Param::cruisespeed) > 0)
+   {
+      Param::SetInt(Param::cruiselight, 1);
+   }
+   else
+   {
+      Param::SetInt(Param::cruiselight, 0);
+   }
+   modeLast = mode;
+}
+
+static void ProcessCruiseControlButtons()
+{
+   int cruisespeed = Param::GetInt(Param::cruisespeed);
+   int cruisestt = Param::GetInt(Param::cruisestt);
+
+   if (cruisestt & CRUISE_ON && Param::GetInt(Param::opmode) == MOD_RUN)
+   {
+      if (cruisespeed <= 0)
+      {
+         if (cruisestt & CRUISE_SETN)
+         {
+            cruisespeed = Param::GetInt(Param::speed);
+         }
+      }
+      else
+      {
+         if (cruisestt & CRUISE_DISABLE || Param::GetBool(Param::din_brake))
+         {
+            cruisespeed = 0;
+         }
+         else if (cruisestt & CRUISE_SETP)
+         {
+            cruisespeed += 100;
+         }
+         else if (cruisestt & CRUISE_SETN)
+         {
+            cruisespeed -= 100;
+         }
+      }
+   }
+   else
+   {
+      cruisespeed = 0;
+   }
+
+   Param::SetInt(Param::cruisespeed, cruisespeed);
+}
+
 static void Ms100Task(void)
 {
+   int dcoffset = Param::GetInt(Param::dcoffset);
+   s32fp dcgain = Param::Get(Param::dcgain);
+   int soc = Param::GetInt(Param::soc) - 50;
+   int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
+   int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
+
    static int seqCtr = 0;
    static uint8_t ctr = 0;
 
@@ -71,6 +142,10 @@ static void Ms100Task(void)
    ctr = (ctr + 1) & 0xF;
    LeafBMS::RequestNextFrame();
    LeafBMS::Send100msMessages();
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc1);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
+
+   ProcessCruiseControlButtons();
 
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
       Can::SendAll();
@@ -106,7 +181,6 @@ static void CalcAndOutputTemp()
    int tmpout = 0;
    s32fp tmphs = 0, tmpm = 0;
 
-
    temphsFlt = IIRFILTER(tmphs, temphsFlt, 15);
    tempmFlt = IIRFILTER(tmpm, tempmFlt, 18);
 
@@ -129,12 +203,11 @@ static void CalcAndOutputTemp()
 
    tmpout = MIN(0xFFFF, MAX(0, tmpout));
 
-   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC4, tmpout);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC4, tmpout);
 
    Param::SetFlt(Param::tmphs, tmphs);
    //Param::SetFlt(Param::tmpm, tmpm);
 }
-
 
 static void Ms10Task(void)
 {
@@ -142,6 +215,7 @@ static void Ms10Task(void)
    const uint8_t seq2[] = { 0x10, 0x68, 0x94, 0xC0 };
    static int seq1Ctr = 0;
    static uint16_t seq2Ctr = 0;
+   static uint32_t accumulatedRegen = 0;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
@@ -160,10 +234,31 @@ static void Ms10Task(void)
    s32fp idc = Param::Get(Param::idc);
    s32fp udcbms = Param::Get(Param::udcbms);
    s32fp power = FP_MUL(idc, udcbms) / 1000;
-   s32fp powerpos = power > 0 ? 0 : -power;
+   int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
 
    seq1Ctr = (seq1Ctr + 1) & 0x3;
-   seq2Ctr += FP_TOINT(FP_MUL(powerpos, FP_FROMFLT(2.8)));
+
+   //Obviously the petrol consumption counter cannot handle
+   //negative values. So we accumulate regen energy and
+   //subtract it from the consumption once we're out of regen
+   if (consumptionIncrement >= 0)
+   {
+      if (accumulatedRegen > (uint32_t)consumptionIncrement)
+      {
+         accumulatedRegen -= consumptionIncrement;
+         consumptionIncrement = 0;
+      }
+      else if (accumulatedRegen > 0) //greater 0 but less then current draw
+      {
+         consumptionIncrement -= accumulatedRegen;
+         accumulatedRegen = 0;
+      }
+      seq2Ctr += consumptionIncrement;
+   }
+   else
+   {
+      accumulatedRegen += -consumptionIncrement;
+   }
 
    Param::SetFlt(Param::power, power);
 
@@ -172,7 +267,7 @@ static void Ms10Task(void)
    //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
    uint8_t check = seq2[seq1Ctr] ^ errlights ^ (seq2Ctr & 0xFF) ^ (seq2Ctr >> 8) ^ cruiselight ^ 0x1A;
    canData[0] = seq2[seq1Ctr] | errlights << 8 | seq2Ctr << 16;
-   canData[1] = 0x1A | cruiselight << 16 | check << 24;
+   canData[1] = 0x1A | cruiselight << 18 | check << 24;
 
    Can::Send(0x480, canData);
 
@@ -297,6 +392,7 @@ extern "C" int main(void)
 
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
+   s.AddTask(Ms500Task, 500);
 
    DigIo::vacuum_out.Set();
    Param::SetInt(Param::version, 4); //backward compatibility
