@@ -95,11 +95,11 @@ static void ProcessCruiseControlButtons()
          }
          else if (cruisestt & CRUISE_SETP)
          {
-            cruisespeed += 100;
+            cruisespeed += Param::GetInt(Param::cruisestep);
          }
          else if (cruisestt & CRUISE_SETN)
          {
-            cruisespeed -= 100;
+            cruisespeed -= Param::GetInt(Param::cruisestep);
          }
       }
    }
@@ -113,8 +113,8 @@ static void ProcessCruiseControlButtons()
 
 static void Ms100Task(void)
 {
-   int dcoffset = Param::GetInt(Param::dcoffset);
-   s32fp dcgain = Param::Get(Param::dcgain);
+   int dcoffset = Param::GetInt(Param::gaugeoffset);
+   s32fp dcgain = Param::Get(Param::gaugegain);
    int soc = Param::GetInt(Param::soc) - 50;
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
    int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
@@ -171,42 +171,67 @@ static void GetDigInputs()
    Param::SetInt(Param::canio, canio);
 }
 
-static void CalcAndOutputTemp()
+static void DerateBatteryPower(s32fp& throtmin, s32fp& throtmax)
 {
-   static int temphsFlt = 0;
-   static int tempmFlt = 0;
-   int pwmgain = Param::GetInt(Param::pwmgain);
-   int pwmofs = Param::GetInt(Param::pwmofs);
-   int pwmfunc = Param::GetInt(Param::pwmfunc);
-   int tmpout = 0;
-   s32fp tmphs = 0, tmpm = 0;
+   s32fp power = Param::Get(Param::power);
+   s32fp powerslack = Param::Get(Param::powerslack);
+   s32fp chglim = Param::Get(Param::chglimit);
+   s32fp dislim = Param::Get(Param::dislimit); //allow a bit more power
 
-   temphsFlt = IIRFILTER(tmphs, temphsFlt, 15);
-   tempmFlt = IIRFILTER(tmpm, tempmFlt, 18);
-
-   switch (pwmfunc)
+   if (power < 0) //discharging
    {
-      default:
-      case PWM_FUNC_TMPM:
-         tmpout = FP_TOINT(tmpm) * pwmgain + pwmofs;
-         break;
-      case PWM_FUNC_TMPHS:
-         tmpout = FP_TOINT(tmphs) * pwmgain + pwmofs;
-         break;
-      case PWM_FUNC_SPEED:
-         tmpout = Param::Get(Param::speed) * pwmgain + pwmofs;
-         break;
-      case PWM_FUNC_SPEEDFRQ:
-         //Handled in 1ms task
-         break;
+      dislim = FP_MUL(powerslack, dislim);
+      power = -power; //Make it positive
+      s32fp powErr = dislim - power;
+      throtmax = FP_FROMINT(100) + powErr * 10;
    }
+   else
+   {
+      chglim = FP_MUL(powerslack, chglim);
+      s32fp powErr = chglim - power;
+      throtmin = -FP_FROMINT(50) - powErr * 10;
+   }
+}
 
-   tmpout = MIN(0xFFFF, MAX(0, tmpout));
+static void TractionControl(s32fp& throtmin, s32fp& throtmax)
+{
+   s32fp frontAxleSpeed = (Param::Get(Param::wheelfl) + Param::Get(Param::wheelfr)) / 2;
+   s32fp rearAxleSpeed = (Param::Get(Param::wheelrl) + Param::Get(Param::wheelrr)) / 2;
+   s32fp diff = frontAxleSpeed - rearAxleSpeed;
+   s32fp kp = Param::Get(Param::tractionkp);
 
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC4, tmpout);
+   //Here we assume front wheel drive
+   if (diff < 0)
+   {
+      //Front axle turns slower than rear axle -> too much breaking force
+      s32fp speedErr = Param::Get(Param::allowedlag) - diff;
+      throtmin = -FP_FROMINT(100) + FP_MUL(kp, speedErr);
+   }
+   else
+   {
+      //Front axle turns faster than rear axle -> wheel spin
+      s32fp speedErr = Param::Get(Param::allowedspin) - diff;
+      throtmax = FP_FROMINT(100) + FP_MUL(kp, speedErr);
+   }
+}
 
-   Param::SetFlt(Param::tmphs, tmphs);
-   //Param::SetFlt(Param::tmpm, tmpm);
+static void LimitThrottle()
+{
+   s32fp throtminBattery = -FP_FROMINT(100), throtmaxBattery = FP_FROMINT(100);
+   s32fp throtminTraction = -FP_FROMINT(100), throtmaxTraction = FP_FROMINT(100);
+
+   DerateBatteryPower(throtminBattery, throtmaxBattery);
+   TractionControl(throtminTraction, throtmaxTraction);
+
+   s32fp throtmin = MAX(throtminBattery, throtminTraction);
+   s32fp throtmax = MIN(throtmaxBattery, throtmaxTraction);
+   throtmin = MIN(0, throtmin);
+   throtmin = MAX(-FP_FROMINT(100), throtmin);
+   throtmax = MIN(FP_FROMINT(100), throtmax);
+   throtmax = MAX(0, throtmax);
+
+   Param::SetFlt(Param::calcthrotmax, throtmax);
+   Param::SetFlt(Param::calcthrotmin, throtmin);
 }
 
 static void Ms10Task(void)
@@ -315,7 +340,8 @@ static void Ms10Task(void)
    Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
 
    GetDigInputs();
-   CalcAndOutputTemp();
+   LimitThrottle();
+
    ErrorMessage::SetTime(rtc_get_counter_val());
 
    LeafBMS::Send10msMessages();
