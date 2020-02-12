@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 0.19.B
+#define VER 0.20.B
 
 
 /* Entries must be ordered as follows:

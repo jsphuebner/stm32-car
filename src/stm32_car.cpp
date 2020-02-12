@@ -135,7 +135,7 @@ static void RunChaDeMo()
    {
       ChaDeMo::SetEnabled(true);
    }
-   if (Param::GetInt(Param::batfull))
+   if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest())
    {
       ChaDeMo::SetEnabled(false);
    }
@@ -301,7 +301,7 @@ static void Ms10Task(void)
    int opmode = Param::GetInt(Param::opmode);
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
-   s32fp udc = Param::Get(Param::udcinv);
+   s32fp udcinv = Param::Get(Param::udcinv);
    s32fp udcthresh = Param::Get(Param::udcthresh);
    s32fp udchyst = Param::Get(Param::udchyst);
    s32fp ucellthresh = Param::Get(Param::ucellthresh);
@@ -365,22 +365,26 @@ static void Ms10Task(void)
       DigIo::oil_out.Clear();
    }
 
-   if (opmode == MOD_OFF)
+   //If inverter voltage drops 50V below BMS voltage
+   //Drop DC contactor and put inverter in neutral
+   if (opmode == MOD_OFF || udcinv < (udcbms - FP_FROMINT(50)))
    {
       DigIo::dcsw_out.Clear();
       Param::SetInt(Param::speedmod, 0);
+      Param::SetInt(Param::din_forward, 0);
    }
    else
    {
       DigIo::dcsw_out.Set();
       Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
+      Param::SetInt(Param::din_forward, 1);
    }
 
-   if (udc > udcthresh || ucellmax > ucellthresh)
+   if (udcinv > udcthresh || ucellmax > ucellthresh)
    {
       Param::SetInt(Param::din_bms, 1);
    }
-   else if (udc < udchyst && ucellmax < ucellhyst)
+   else if (udcinv < udchyst && ucellmax < ucellhyst)
    {
       Param::SetInt(Param::din_bms, 0);
    }
@@ -398,7 +402,7 @@ static void Ms10Task(void)
    ErrorMessage::SetTime(rtc_get_counter_val());
 
    LeafBMS::Send10msMessages();
-   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
+   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS && !chargeMode)
       Can::SendAll();
 }
 

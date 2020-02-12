@@ -36,12 +36,14 @@ class ChaDeMo
       static int GetChargerOutputCurrent() { return chargerOutputCurrent; }
       static int GetChargerMaxCurrent() { return chargerMaxCurrent; }
       static bool ConnectorLocked() { return connectorLock; }
+      static bool ChargerStopRequest() { return chargerStopRequest; }
 
    protected:
 
    private:
       static bool chargeEnabled;
       static bool connectorLock;
+      static bool chargerStopRequest;
       static uint8_t chargerMaxCurrent;
       static uint8_t chargeCurrentRequest;
       static uint16_t targetBatteryVoltage;

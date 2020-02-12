@@ -21,6 +21,7 @@
 
 bool ChaDeMo::chargeEnabled;
 bool ChaDeMo::connectorLock;
+bool ChaDeMo::chargerStopRequest;
 uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
 uint16_t ChaDeMo::targetBatteryVoltage;
@@ -37,6 +38,7 @@ void ChaDeMo::Process109Message(uint32_t data[2])
    chargerOutputVoltage = data[0] >> 8;
    chargerOutputCurrent = data[0] >> 24;
    connectorLock = ((data[1] >> 8) & 0x4) != 0;
+   chargerStopRequest = ((data[1] >> 8) & 0x20) != 0;
 }
 
 void ChaDeMo::SendMessages()
