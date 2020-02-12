@@ -36,6 +36,7 @@
 #include "printf.h"
 #include "stm32scheduler.h"
 #include "leafbms.h"
+#include "chademo.h"
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
@@ -45,6 +46,7 @@
 HWREV hwRev; //Hardware variant of board we are running on
 
 static Stm32Scheduler* scheduler;
+static bool chargeMode = false;
 
 static void Ms500Task(void)
 {
@@ -111,14 +113,45 @@ static void ProcessCruiseControlButtons()
    Param::SetInt(Param::cruisespeed, cruisespeed);
 }
 
-static void Ms100Task(void)
+static void RunChaDeMo()
 {
-   int dcoffset = Param::GetInt(Param::gaugeoffset);
-   s32fp dcgain = Param::Get(Param::gaugegain);
-   int soc = Param::GetInt(Param::soc) - 50;
-   int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
-   int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
+   static uint32_t connectorLockTime = 0;
 
+   if (rtc_get_counter_val() > 300) //300*10ms = 3s
+   {
+      //If after 3s we don't see voltage on the inverter it means
+      //the DC switches are disabled and we are in charge mode
+      if (Param::Get(Param::udcinv) == 0)
+      {
+         chargeMode = true;
+      }
+   }
+   if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
+   {
+      connectorLockTime = rtc_get_counter_val();
+   }
+   //Start charging 3s after connector was locked
+   if ((rtc_get_counter_val() - connectorLockTime) > 300)
+   {
+      ChaDeMo::SetEnabled(true);
+   }
+   if (Param::GetInt(Param::batfull))
+   {
+      ChaDeMo::SetEnabled(false);
+   }
+   ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
+   ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
+
+   if (chargeMode)
+   {
+      ChaDeMo::SendMessages();
+      Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
+      Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
+   }
+}
+
+static void SendVAG100msMessage()
+{
    static int seqCtr = 0;
    static uint8_t ctr = 0;
 
@@ -130,25 +163,44 @@ static void Ms100Task(void)
 
    uint8_t canData[8] = { (uint8_t)(0x80 | ctr), 0, 0, seq1[seqCtr], seq2[seqCtr], seq3[seqCtr], seq4[seqCtr], seq5[seqCtr] };
 
+   Can::Send(0x580, (uint32_t*)canData);
+   seqCtr = (seqCtr + 1) & 0x3;
+   ctr = (ctr + 1) & 0xF;
+}
+
+static void SetFuelGauge()
+{
+   int dcoffset = Param::GetInt(Param::gaugeoffset);
+   s32fp dcgain = Param::Get(Param::gaugegain);
+   int soc = Param::GetInt(Param::soc) - 50;
+   int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
+   int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
+
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc1);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
+}
+
+static void Ms100Task(void)
+{
    DigIo::led_out.Toggle();
-   //ErrorMessage::PrintNewErrors();
    iwdg_reset();
    s32fp cpuLoad = FP_FROMINT(scheduler->GetCpuLoad());
    Param::SetFlt(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
 
-   Can::Send(0x580, (uint32_t*)canData);
-   seqCtr = (seqCtr + 1) & 0x3;
-   ctr = (ctr + 1) & 0xF;
    LeafBMS::RequestNextFrame();
    LeafBMS::Send100msMessages();
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc1);
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
 
    ProcessCruiseControlButtons();
+   RunChaDeMo();
 
-   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
-      Can::SendAll();
+   if (!chargeMode)
+   {
+      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
+         Can::SendAll();
+      SendVAG100msMessage();
+      SetFuelGauge();
+   }
 }
 
 static void GetDigInputs()
@@ -175,8 +227,8 @@ static void DerateBatteryPower(s32fp& throtmin, s32fp& throtmax)
 {
    s32fp power = Param::Get(Param::power);
    s32fp powerslack = Param::Get(Param::powerslack);
-   s32fp chglim = Param::Get(Param::chglimit);
-   s32fp dislim = Param::Get(Param::dislimit); //allow a bit more power
+   s32fp chglim = Param::Get(Param::chglim);
+   s32fp dislim = Param::Get(Param::dislim); //allow a bit more power
 
    if (power < 0) //discharging
    {
@@ -236,10 +288,9 @@ static void LimitThrottle()
 
 static void Ms10Task(void)
 {
-   //const uint8_t seq1[] = { 0x27, 0x46, 0x8F, 0xD7 };
    const uint8_t seq2[] = { 0x10, 0x68, 0x94, 0xC0 };
    static int seq1Ctr = 0;
-   static uint16_t seq2Ctr = 0;
+   static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
@@ -278,7 +329,7 @@ static void Ms10Task(void)
          consumptionIncrement -= accumulatedRegen;
          accumulatedRegen = 0;
       }
-      seq2Ctr += consumptionIncrement;
+      consumptionCounter += consumptionIncrement;
    }
    else
    {
@@ -290,8 +341,8 @@ static void Ms10Task(void)
    uint32_t canData[2];
 
    //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
-   uint8_t check = seq2[seq1Ctr] ^ errlights ^ (seq2Ctr & 0xFF) ^ (seq2Ctr >> 8) ^ cruiselight ^ 0x1A;
-   canData[0] = seq2[seq1Ctr] | errlights << 8 | seq2Ctr << 16;
+   uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
+   canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
    canData[1] = 0x1A | cruiselight << 18 | check << 24;
 
    Can::Send(0x480, canData);
@@ -334,10 +385,12 @@ static void Ms10Task(void)
       Param::SetInt(Param::din_bms, 0);
    }
 
+   s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
    Param::SetInt(Param::vacuum, vacuum);
    Param::SetInt(Param::pot, AnaIn::Get(AnaIn::throttle1));
    Param::SetInt(Param::pot2, AnaIn::Get(AnaIn::throttle2));
    Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
+   Param::SetFlt(Param::chgcurlim, cur);
 
    GetDigInputs();
    LimitThrottle();
@@ -358,7 +411,18 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
 
 static void CanCallback(uint32_t id, uint32_t data[2])
 {
-   LeafBMS::DecodeCAN(id, data);
+   switch (id)
+   {
+   case 0x108:
+      ChaDeMo::Process108Message(data);
+      break;
+   case 0x109:
+      ChaDeMo::Process109Message(data);
+      break;
+   default:
+      LeafBMS::DecodeCAN(id, data);
+      break;
+   }
 }
 
 static void ConfigureVariantIO()
@@ -412,6 +476,8 @@ extern "C" int main(void)
    Can::RegisterUserMessage(0x55B);
    Can::RegisterUserMessage(0x5BC);
    Can::RegisterUserMessage(0x5C0);
+   Can::RegisterUserMessage(0x108);
+   Can::RegisterUserMessage(0x109);
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;

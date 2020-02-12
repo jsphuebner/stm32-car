@@ -84,18 +84,20 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2])
       s32fp cur = (int16_t)(bytes[0] << 8) + (bytes[1] & 0xE0);
       s32fp udc = ((bytes[2] << 8) + (bytes[3] & 0xC0)) >> 1;
       bool interlock = (bytes[3] & (1 << 3)) >> 3;
+      bool full = (bytes[3] & (1 << 4)) >> 4;
 
       Param::SetFlt(Param::idc, cur / 2);
       Param::SetFlt(Param::udcbms, udc / 2);
       Param::SetInt(Param::din_bmslock, interlock);
+      Param::SetInt(Param::batfull, full);
    }
    else if (id == 0x1DC)
    {
       s32fp dislimit = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
       s32fp chglimit = ((bytes[1] & 0x3F) << 9) + ((bytes[2] & 0xF0) << 1);
 
-      Param::SetFlt(Param::dislimit, dislimit / 4);
-      Param::SetFlt(Param::chglimit, chglimit / 4);
+      Param::SetFlt(Param::dislim, dislimit / 4);
+      Param::SetFlt(Param::chglim, chglimit / 4);
    }
    else if (id == 0x55B)
    {

@@ -51,15 +51,19 @@
     VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
     VALUE_ENTRY(lbcdtc,       "",      2050 ) \
+    VALUE_ENTRY(batfull,      ONOFF,   2069 ) \
     VALUE_ENTRY(batmin,       "mV",    2044 ) \
     VALUE_ENTRY(batmax,       "mV",    2045 ) \
     VALUE_ENTRY(batavg,       "mV",    2046 ) \
     VALUE_ENTRY(udcinv,       "V",     2001 ) \
     VALUE_ENTRY(udcbms,       "V",     2048 ) \
-    VALUE_ENTRY(chglimit,     "kW",    2049 ) \
-    VALUE_ENTRY(dislimit,     "kW",    2050 ) \
+    VALUE_ENTRY(udccdm,       "V",     2068 ) \
+    VALUE_ENTRY(chglim,       "kW",    2049 ) \
+    VALUE_ENTRY(dislim,       "kW",    2050 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
+    VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(idc,          "A",     2047 ) \
+    VALUE_ENTRY(idccdm,       "A",     2067 ) \
     VALUE_ENTRY(soc,          "%",     2052 ) \
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
@@ -91,7 +95,7 @@
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2066
+//Next value Id: 2070
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat"

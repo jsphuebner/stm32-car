@@ -18,10 +18,8 @@
 ##
 
 BINARY		= stm32_car
-OUT_DIR  = obj
-space :=
-space +=
-PREFIX		?= arm-none-eabi
+OUT_DIR     = obj
+PREFIX	  ?= arm-none-eabi
 SIZE  = $(PREFIX)-size
 CC		= $(PREFIX)-gcc
 CPP	= $(PREFIX)-g++
@@ -40,8 +38,8 @@ LDSCRIPT	= $(BINARY).ld
 LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJSL		= $(BINARY).o hwinit.o stm32scheduler.o params.o terminal.o terminal_prj.o \
            my_string.o digio.o my_fp.o printf.o anain.o leafbms.o \
-           param_save.o errormessage.o stm32_can.o
-OBJS     = $(subst $(space),$(space)$(OUT_DIR)/, $(OBJSL))
+           param_save.o errormessage.o stm32_can.o chademo.o
+OBJS     = $(patsubst %.o,$(OUT_DIR)/%.o, $(OBJSL))
 vpath %.c src/ libopeninv/src/
 vpath %.cpp src/ libopeninv/src/
 
