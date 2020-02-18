@@ -31,7 +31,8 @@ class ChaDeMo
 
       static void SetTargetBatteryVoltage(uint16_t vtg) { targetBatteryVoltage = vtg; }
       static void SetChargeCurrent(uint8_t cur) { chargeCurrentRequest = MIN(cur, chargerMaxCurrent); }
-      static void SetEnabled(bool enabled) { chargeEnabled = enabled; }
+      static void SetEnabled(bool enabled);
+      static void SetSoC(uint8_t soC) { soc = soC; }
       static int GetChargerOutputVoltage() { return chargerOutputVoltage; }
       static int GetChargerOutputCurrent() { return chargerOutputCurrent; }
       static int GetChargerMaxCurrent() { return chargerMaxCurrent; }
@@ -46,9 +47,11 @@ class ChaDeMo
       static bool chargerStopRequest;
       static uint8_t chargerMaxCurrent;
       static uint8_t chargeCurrentRequest;
+      static uint32_t rampedCurReq;
       static uint16_t targetBatteryVoltage;
       static uint16_t chargerOutputVoltage;
       static uint8_t chargerOutputCurrent;
+      static uint8_t soc;
 };
 
 #endif // CHADEMO_H

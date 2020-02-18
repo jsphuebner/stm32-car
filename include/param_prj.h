@@ -98,7 +98,7 @@
 //Next value Id: 2070
 
 #define VERSTR STRINGIFY(4=VER)
-#define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat"
+#define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"
 #define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define OKERR        "0=Error, 1=Ok, 2=na"
@@ -129,6 +129,10 @@ enum modes
    MOD_BUCK,
    MOD_SINE,
    MOD_ACHEAT,
+   MOD_CHARGESTART,
+   MOD_CHARGELOCK,
+   MOD_CHARGE,
+   MOD_CHARGEND,
    MOD_LAST
 };
 

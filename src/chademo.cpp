@@ -24,9 +24,11 @@ bool ChaDeMo::connectorLock;
 bool ChaDeMo::chargerStopRequest;
 uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
+uint32_t ChaDeMo::rampedCurReq;
 uint16_t ChaDeMo::targetBatteryVoltage;
 uint16_t ChaDeMo::chargerOutputVoltage;
 uint8_t ChaDeMo::chargerOutputCurrent;
+uint8_t ChaDeMo::soc;
 
 void ChaDeMo::Process108Message(uint32_t data[2])
 {
@@ -39,6 +41,23 @@ void ChaDeMo::Process109Message(uint32_t data[2])
    chargerOutputCurrent = data[0] >> 24;
    connectorLock = ((data[1] >> 8) & 0x4) != 0;
    chargerStopRequest = ((data[1] >> 8) & 0x20) != 0;
+}
+
+void ChaDeMo::SetEnabled(bool enabled)
+{
+   chargeEnabled = enabled;
+
+   if (chargeEnabled)
+   {
+      if (chargeCurrentRequest > rampedCurReq)
+         rampedCurReq++;
+      else if (chargeCurrentRequest < rampedCurReq)
+         rampedCurReq--;
+   }
+   else
+   {
+      rampedCurReq = 0;
+   }
 }
 
 void ChaDeMo::SendMessages()
@@ -55,9 +74,8 @@ void ChaDeMo::SendMessages()
 
    Can::Send(0x101, data);
 
-   uint32_t curReq = chargeEnabled ? chargeCurrentRequest : 0;
-   data[0] = 1 | ((uint32_t)targetBatteryVoltage << 8) | (curReq << 24);
-   data[1] = (uint32_t)chargeEnabled << 8;
+   data[0] = 1 | ((uint32_t)targetBatteryVoltage << 8) | (rampedCurReq << 24);
+   data[1] = (uint32_t)chargeEnabled << 8 | ((uint32_t)soc << 16);
 
    Can::Send(0x102, data);
 }

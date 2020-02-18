@@ -124,23 +124,33 @@ static void RunChaDeMo()
       if (Param::Get(Param::udcinv) == 0)
       {
          chargeMode = true;
+         Param::SetInt(Param::opmode, MOD_CHARGESTART);
       }
    }
    if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
    {
       connectorLockTime = rtc_get_counter_val();
+      Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
    //Start charging 3s after connector was locked
    if ((rtc_get_counter_val() - connectorLockTime) > 300)
    {
       ChaDeMo::SetEnabled(true);
+      //Use fuel gauge line to control charge enable signal
+      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, GAUGEMAX);
+      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
+      Param::SetInt(Param::opmode, MOD_CHARGE);
    }
    if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest())
    {
       ChaDeMo::SetEnabled(false);
+      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
+      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
+      Param::SetInt(Param::opmode, MOD_CHARGEND);
    }
    ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
+   ChaDeMo::SetSoC(Param::Get(Param::soc) >> 4);
 
    if (chargeMode)
    {
