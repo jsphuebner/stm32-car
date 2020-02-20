@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 0.20.B
+#define VER 0.23.B
 
 
 /* Entries must be ordered as follows:
@@ -29,7 +29,7 @@
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
-    PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,  -10,    7   ) \
+    PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,  -10,     7   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruisestep,  "rpm",     0,      1000,   50,     3   ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    2,      1.1,    4   ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
@@ -44,11 +44,14 @@
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      95  ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
+    PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
+    PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",        0,      100,    0,      0   ) \
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
     VALUE_ENTRY(hwver,        HWREVS,  2036 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
+    VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
     VALUE_ENTRY(lbcdtc,       "",      2050 ) \
     VALUE_ENTRY(batfull,      ONOFF,   2069 ) \
@@ -93,9 +96,10 @@
     VALUE_ENTRY(din_reverse,  ONOFF,   2028 ) \
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
+    VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2070
+//Next value Id: 2072
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"
@@ -108,6 +112,7 @@
 #define HWREVS       "0=Rev1, 1=Rev2, 2=Rev3, 3=Tesla"
 #define ERRLIGHTS    "0=Off, 4=EPC, 8=engine"
 #define CRUISESTATES "0=None, 1=On, 2=Disable, 4=SetN, 8=SetP"
+#define CDMSTAT      "1=Charging, 2=Malfunction, 4=ConnLock, 8=BatIncomp, 16=SystemMalfunction, 32=Stop"
 #define CAT_THROTTLE "Throttle"
 #define CAT_POWER    "Power Limit"
 #define CAT_CONTACT  "Contactor Control"

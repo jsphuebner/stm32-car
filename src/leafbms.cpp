@@ -103,7 +103,10 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2])
    {
       s32fp soc = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
 
-      Param::SetFlt(Param::soc, soc / 10);
+      if (Param::Get(Param::soctest) == 0)
+         Param::SetFlt(Param::soc, soc / 10);
+      else
+         Param::SetFlt(Param::soc, Param::Get(Param::soctest));
    }
    else if (id == 0x5BC)
    {

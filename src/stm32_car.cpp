@@ -133,7 +133,7 @@ static void RunChaDeMo()
       Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
    //Start charging 3s after connector was locked
-   if ((rtc_get_counter_val() - connectorLockTime) > 300)
+   if (connectorLockTime > 0 && (rtc_get_counter_val() - connectorLockTime) > 300)
    {
       ChaDeMo::SetEnabled(true);
       //Use fuel gauge line to control charge enable signal
@@ -141,23 +141,25 @@ static void RunChaDeMo()
       timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
       Param::SetInt(Param::opmode, MOD_CHARGE);
    }
-   if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest())
-   {
-      ChaDeMo::SetEnabled(false);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
-      Param::SetInt(Param::opmode, MOD_CHARGEND);
-   }
    ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
-   ChaDeMo::SetSoC(Param::Get(Param::soc) >> 4);
+   ChaDeMo::SetSoC(Param::Get(Param::soc));
 
    if (chargeMode)
    {
+      if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest())
+      {
+         ChaDeMo::SetEnabled(false);
+         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
+         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
+         Param::SetInt(Param::opmode, MOD_CHARGEND);
+      }
+
       ChaDeMo::SendMessages();
       Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
    }
+   Param::SetInt(Param::cdmstatus, ChaDeMo::GetChargerStatus());
 }
 
 static void SendVAG100msMessage()
@@ -182,7 +184,7 @@ static void SetFuelGauge()
 {
    int dcoffset = Param::GetInt(Param::gaugeoffset);
    s32fp dcgain = Param::Get(Param::gaugegain);
-   int soc = Param::GetInt(Param::soc) - 50;
+   int soc = Param::GetInt(Param::soc) - Param::GetInt(Param::gaugebalance);
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
    int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
 

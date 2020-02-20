@@ -21,6 +21,7 @@
 #define CHADEMO_H
 #include <stdint.h>
 #include "my_math.h"
+#include "my_fp.h"
 
 class ChaDeMo
 {
@@ -32,19 +33,23 @@ class ChaDeMo
       static void SetTargetBatteryVoltage(uint16_t vtg) { targetBatteryVoltage = vtg; }
       static void SetChargeCurrent(uint8_t cur) { chargeCurrentRequest = MIN(cur, chargerMaxCurrent); }
       static void SetEnabled(bool enabled);
-      static void SetSoC(uint8_t soC) { soc = soC; }
+      /** Set vehicle in parking position, true=yes, 0=false */
+      static void SetParkPosition(bool pos) { parkingPosition = !pos; }
+      /** Set current state of charge */
+      static void SetSoC(s32fp soC) { soc = soC >> (FRAC_DIGITS - 1); }
       static int GetChargerOutputVoltage() { return chargerOutputVoltage; }
       static int GetChargerOutputCurrent() { return chargerOutputCurrent; }
       static int GetChargerMaxCurrent() { return chargerMaxCurrent; }
-      static bool ConnectorLocked() { return connectorLock; }
-      static bool ChargerStopRequest() { return chargerStopRequest; }
+      static int GetChargerStatus() { return chargerStatus; }
+      static bool ConnectorLocked() { return (chargerStatus & 0x4) != 0; }
+      static bool ChargerStopRequest() { return (chargerStatus & 0x20) != 0; }
 
    protected:
 
    private:
       static bool chargeEnabled;
-      static bool connectorLock;
-      static bool chargerStopRequest;
+      static bool parkingPosition;
+      static uint8_t chargerStatus;
       static uint8_t chargerMaxCurrent;
       static uint8_t chargeCurrentRequest;
       static uint32_t rampedCurReq;
