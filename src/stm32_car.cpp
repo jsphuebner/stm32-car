@@ -117,14 +117,16 @@ static void RunChaDeMo()
 {
    static uint32_t connectorLockTime = 0;
 
-   if (rtc_get_counter_val() > 300) //300*10ms = 3s
+   if (rtc_get_counter_val() > 200) //200*10ms = 2s
    {
-      //If after 3s we don't see voltage on the inverter it means
+      //If after 2s we don't see voltage on the inverter it means
       //the DC switches are disabled and we are in charge mode
       if (Param::Get(Param::udcinv) == 0)
       {
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
+         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
+         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
       }
    }
    if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
@@ -144,10 +146,11 @@ static void RunChaDeMo()
    ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
    ChaDeMo::SetSoC(Param::Get(Param::soc));
+   ChaDeMo::SetFault(!LeafBMS::Alive(rtc_get_counter_val()));
 
    if (chargeMode)
    {
-      if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest())
+      if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest() || !LeafBMS::Alive(rtc_get_counter_val()))
       {
          ChaDeMo::SetEnabled(false);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
@@ -203,6 +206,12 @@ static void Ms100Task(void)
    LeafBMS::RequestNextFrame();
    LeafBMS::Send100msMessages();
 
+   if (!LeafBMS::Alive(rtc_get_counter_val()))
+   {
+      Param::SetFlt(Param::chgcurlim, 0);
+      Param::SetFlt(Param::chglim, 0);
+   }
+
    ProcessCruiseControlButtons();
    RunChaDeMo();
 
@@ -237,22 +246,25 @@ static void GetDigInputs()
 
 static void DerateBatteryPower(s32fp& throtmin, s32fp& throtmax)
 {
+   static s32fp powerFiltered = 0;
    s32fp power = Param::Get(Param::power);
    s32fp powerslack = Param::Get(Param::powerslack);
    s32fp chglim = Param::Get(Param::chglim);
    s32fp dislim = Param::Get(Param::dislim); //allow a bit more power
 
+   powerFiltered = IIRFILTER(powerFiltered, power, 4);
+
    if (power < 0) //discharging
    {
       dislim = FP_MUL(powerslack, dislim);
       power = -power; //Make it positive
-      s32fp powErr = dislim - power;
+      s32fp powErr = dislim - powerFiltered;
       throtmax = FP_FROMINT(100) + powErr * 10;
    }
    else
    {
       chglim = FP_MUL(powerslack, chglim);
-      s32fp powErr = chglim - power;
+      s32fp powErr = chglim - powerFiltered;
       throtmin = -FP_FROMINT(50) - powErr * 10;
    }
 }
@@ -304,6 +316,7 @@ static void Ms10Task(void)
    static int seq1Ctr = 0;
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
+   static int speedTimeout;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
@@ -313,6 +326,7 @@ static void Ms10Task(void)
    int opmode = Param::GetInt(Param::opmode);
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
+   s32fp tmpm = Param::Get(Param::tmpm);
    s32fp udcinv = Param::Get(Param::udcinv);
    s32fp udcthresh = Param::Get(Param::udcthresh);
    s32fp udchyst = Param::Get(Param::udchyst);
@@ -350,15 +364,6 @@ static void Ms10Task(void)
 
    Param::SetFlt(Param::power, power);
 
-   uint32_t canData[2];
-
-   //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
-   uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
-   canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
-   canData[1] = 0x1A | cruiselight << 18 | check << 24;
-
-   Can::Send(0x480, canData);
-
    if (vacuum > vacuumthresh)
    {
       DigIo::vacuum_out.Clear();
@@ -377,8 +382,35 @@ static void Ms10Task(void)
       DigIo::oil_out.Clear();
    }
 
+   if (speed == 0 && opmode == MOD_RUN)
+   {
+      if (speedTimeout > 0)
+      {
+         speedTimeout--;
+      }
+      else if (Param::Get(Param::tmpaux) < Param::Get(Param::heathresh))
+      {
+         s32fp heatmax = Param::Get(Param::heatmax);
+         s32fp heatcur = (heatmax - tmpm) * 50;
+         s32fp heatcurmax = Param::Get(Param::heatcurmax);
+
+         heatcur = MIN(heatcurmax, heatcur);
+         Param::SetFlt(Param::heatcur, heatcur);
+      }
+      else
+      {
+         Param::SetFlt(Param::heatcur, 0);
+      }
+   }
+   else
+   {
+      speedTimeout = 100;
+      Param::SetFlt(Param::heatcur, 0);
+   }
+
    //If inverter voltage drops 50V below BMS voltage
    //Drop DC contactor and put inverter in neutral
+   //This happens if charger is plugged in while car is still in drive
    if (opmode == MOD_OFF || udcinv < (udcbms - FP_FROMINT(50)))
    {
       DigIo::dcsw_out.Clear();
@@ -414,8 +446,20 @@ static void Ms10Task(void)
    ErrorMessage::SetTime(rtc_get_counter_val());
 
    LeafBMS::Send10msMessages();
-   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS && !chargeMode)
-      Can::SendAll();
+   if (!chargeMode)
+   {
+      uint32_t canData[2];
+
+      //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
+      uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
+      canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
+      canData[1] = 0x1A | cruiselight << 18 | check << 24;
+
+      Can::Send(0x480, canData);
+
+      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
+         Can::SendAll();
+   }
 }
 
 /** This function is called when the user changes a parameter */
@@ -435,8 +479,11 @@ static void CanCallback(uint32_t id, uint32_t data[2])
    case 0x109:
       ChaDeMo::Process109Message(data);
       break;
+   case 0x420:
+      Param::SetFlt(Param::tmpaux, FP_FROMINT((((data[0] >> 8) & 0xFF) - 100)) / 2);
+      break;
    default:
-      LeafBMS::DecodeCAN(id, data);
+      LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
       break;
    }
 }
@@ -494,6 +541,7 @@ extern "C" int main(void)
    Can::RegisterUserMessage(0x5C0);
    Can::RegisterUserMessage(0x108);
    Can::RegisterUserMessage(0x109);
+   Can::RegisterUserMessage(0x420);
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;

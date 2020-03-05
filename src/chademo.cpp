@@ -19,8 +19,9 @@
 #include "chademo.h"
 #include "stm32_can.h"
 
-bool ChaDeMo::chargeEnabled;
-bool ChaDeMo::parkingPosition;
+bool ChaDeMo::chargeEnabled = false;
+bool ChaDeMo::parkingPosition = false;
+bool ChaDeMo::fault = false;
 uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
 uint32_t ChaDeMo::rampedCurReq;
@@ -75,7 +76,7 @@ void ChaDeMo::SendMessages()
    Can::Send(0x101, data);
 
    data[0] = 1 | ((uint32_t)targetBatteryVoltage << 8) | (rampedCurReq << 24);
-   data[1] = (uint32_t)chargeEnabled << 8 | (uint32_t)parkingPosition << 9 | ((uint32_t)soc << 16);
+   data[1] = (uint32_t)chargeEnabled << 8 | (uint32_t)parkingPosition << 9 | (uint32_t)fault << 10 | ((uint32_t)soc << 16);
 
    Can::Send(0x102, data);
 }

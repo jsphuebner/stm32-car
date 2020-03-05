@@ -35,6 +35,7 @@ class ChaDeMo
       static void SetEnabled(bool enabled);
       /** Set vehicle in parking position, true=yes, 0=false */
       static void SetParkPosition(bool pos) { parkingPosition = !pos; }
+      static void SetFault(bool flt) { fault = flt; }
       /** Set current state of charge */
       static void SetSoC(s32fp soC) { soc = soC >> (FRAC_DIGITS - 1); }
       static int GetChargerOutputVoltage() { return chargerOutputVoltage; }
@@ -42,13 +43,14 @@ class ChaDeMo
       static int GetChargerMaxCurrent() { return chargerMaxCurrent; }
       static int GetChargerStatus() { return chargerStatus; }
       static bool ConnectorLocked() { return (chargerStatus & 0x4) != 0; }
-      static bool ChargerStopRequest() { return (chargerStatus & 0x20) != 0; }
+      static bool ChargerStopRequest() { return (chargerStatus & 0x2A) != 0; }
 
    protected:
 
    private:
       static bool chargeEnabled;
       static bool parkingPosition;
+      static bool fault;
       static uint8_t chargerStatus;
       static uint8_t chargerMaxCurrent;
       static uint8_t chargeCurrentRequest;

@@ -23,12 +23,13 @@
 class LeafBMS
 {
    public:
-      static void DecodeCAN(int id, uint32_t data[2]);
+      static void DecodeCAN(int id, uint32_t data[2], uint32_t time);
       static void RequestNextFrame();
       static uint16_t GetCellVoltage(int idx);
       static int GetCellStatus(int idx);
       static void Send10msMessages();
       static void Send100msMessages();
+      static bool Alive(uint32_t time);
       static const int NUMCELLS = 96;
 
    private:
@@ -39,6 +40,7 @@ class LeafBMS
       static uint8_t statusBits[NUMCELLS / 4];
       static uint8_t run10ms;
       static uint8_t run100ms;
+      static uint32_t lastRecv;
 };
 
 #endif // LEAFBMS_H

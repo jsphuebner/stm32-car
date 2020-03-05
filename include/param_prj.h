@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 0.23.B
+#define VER 0.24.B
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 98
+//Next param id (increase when adding new parameter!): 101
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -42,6 +42,9 @@
     PARAM_ENTRY(CAT_CONTACT,  ucellhyst,   "mV",      3000,   4200,   3900,   97  ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      95  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     70,     60,     99  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatcurmax,  "A",       0,      400,    0,     100  ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
@@ -78,10 +81,12 @@
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
+    VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
+    VALUE_ENTRY(heatcur,      "A",     2073 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
     VALUE_ENTRY(wheelfl,      "km/h",  2060 ) \
     VALUE_ENTRY(wheelfr,      "km/h",  2061 ) \
@@ -99,7 +104,7 @@
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2072
+//Next value Id: 2074
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"

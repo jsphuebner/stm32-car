@@ -31,8 +31,9 @@ uint8_t LeafBMS::run10ms = 0;
 uint8_t LeafBMS::run100ms = 0;
 uint8_t LeafBMS::voltBytes[NUMCELLS * 2];
 uint8_t LeafBMS::statusBits[NUMCELLS / 4];
+uint32_t LeafBMS::lastRecv = 0;
 
-void LeafBMS::DecodeCAN(int id, uint32_t data[2])
+void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
 {
    uint8_t* bytes = (uint8_t*)data;
 
@@ -98,6 +99,7 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2])
 
       Param::SetFlt(Param::dislim, dislimit / 4);
       Param::SetFlt(Param::chglim, chglimit / 4);
+      lastRecv = time;
    }
    else if (id == 0x55B)
    {
@@ -240,6 +242,11 @@ void LeafBMS::Send100msMessages()
    Can::Send(0x54C, canData);
 
    run100ms = (run100ms + 1) & 3;
+}
+
+bool LeafBMS::Alive(uint32_t time)
+{
+   return (time - lastRecv) < 100;
 }
 
 uint8_t LeafBMS::Crc8ForHCM(int n, uint8_t *msg)
