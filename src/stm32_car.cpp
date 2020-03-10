@@ -117,7 +117,7 @@ static void RunChaDeMo()
 {
    static uint32_t connectorLockTime = 0;
 
-   if (rtc_get_counter_val() > 200) //200*10ms = 2s
+   if (!chargeMode && rtc_get_counter_val() > 200) //200*10ms = 2s
    {
       //If after 2s we don't see voltage on the inverter it means
       //the DC switches are disabled and we are in charge mode
@@ -135,7 +135,7 @@ static void RunChaDeMo()
       Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
    //Start charging 3s after connector was locked
-   if (connectorLockTime > 0 && (rtc_get_counter_val() - connectorLockTime) > 300)
+   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 300)
    {
       ChaDeMo::SetEnabled(true);
       //Use fuel gauge line to control charge enable signal
