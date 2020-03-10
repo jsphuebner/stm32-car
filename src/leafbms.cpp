@@ -35,6 +35,7 @@ uint32_t LeafBMS::lastRecv = 0;
 
 void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
 {
+   static s32fp chgLimFiltered = 0;
    uint8_t* bytes = (uint8_t*)data;
 
    if (id == 0x7BB)
@@ -97,8 +98,10 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
       s32fp dislimit = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
       s32fp chglimit = ((bytes[1] & 0x3F) << 9) + ((bytes[2] & 0xF0) << 1);
 
+      chgLimFiltered = IIRFILTER(chgLimFiltered, chglimit, 5);
+
       Param::SetFlt(Param::dislim, dislimit / 4);
-      Param::SetFlt(Param::chglim, chglimit / 4);
+      Param::SetFlt(Param::chglim, chgLimFiltered / 4);
       lastRecv = time;
    }
    else if (id == 0x55B)
@@ -158,7 +161,7 @@ void LeafBMS::RequestNextFrame()
 
          Param::SetInt(Param::batmin, min);
          Param::SetInt(Param::batmax, max);
-         Param::SetInt(Param::batavg, avg / 96);
+         Param::SetInt(Param::batavg, avg / NUMCELLS);
       }
    }
    else if (bmsGrp == 6)
@@ -206,6 +209,7 @@ void LeafBMS::Send10msMessages()
 {
    uint32_t canData[2] = { 0, 0 };
    int relay = Param::GetInt(Param::opmode) != MOD_OFF;
+   int charge = Param::GetInt(Param::opmode) >= MOD_CHARGESTART ? 2 : 0;
    uint8_t crc;
 
    canData[1] = run10ms << 6 | 1 << 2 | relay << 14;
@@ -213,10 +217,11 @@ void LeafBMS::Send10msMessages()
    canData[1] |= crc << 24;
    Can::Send(0x1D4, canData);
 
-   canData[1] = run10ms << 16;
+   canData[0] = charge << 22; //quick charge
+   canData[1] = run10ms << 16 | run10ms << 17;
    Can::Send(0x1F2, canData);
 
-   canData[0] = 180; //360V input voltage
+   canData[0] = Param::GetInt(Param::udcbms) / 2;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;
    Can::Send(0x1DA, canData);
@@ -229,6 +234,7 @@ void LeafBMS::Send100msMessages()
    uint32_t canData[2] = { 0, 0 };
    uint8_t crc;
    //TODO: charger power?
+   canData[1] = 0xFF << 16 | (Param::GetInt(Param::opmode) >= MOD_CHARGESTART) << 6;
    Can::Send(0x390, canData);
 
    canData[0] = run100ms << 24;
