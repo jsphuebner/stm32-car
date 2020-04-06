@@ -107,7 +107,6 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
    else if (id == 0x55B)
    {
       s32fp soc = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
-
       if (Param::Get(Param::soctest) == 0)
          Param::SetFlt(Param::soc, soc / 10);
       else
@@ -118,6 +117,15 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
       int soh = bytes[4] >> 1;
 
       Param::SetInt(Param::soh, soh);
+
+      /*s32fp soc = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
+      soc *= 80000; //80Wh * 100%
+      soc /= 24000;
+
+      if (Param::Get(Param::soctest) == 0)
+         Param::SetFlt(Param::soc, soc);
+      else
+         Param::SetFlt(Param::soc, Param::Get(Param::soctest));*/
    }
    else if (id == 0x5C0)
    {

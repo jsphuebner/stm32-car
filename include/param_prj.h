@@ -55,6 +55,7 @@
     VALUE_ENTRY(hwver,        HWREVS,  2036 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
+    VALUE_ENTRY(cdmcureq,    "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
     VALUE_ENTRY(lbcdtc,       "",      2050 ) \
     VALUE_ENTRY(batfull,      ONOFF,   2069 ) \

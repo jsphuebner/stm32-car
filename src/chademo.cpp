@@ -22,6 +22,7 @@
 bool ChaDeMo::chargeEnabled = false;
 bool ChaDeMo::parkingPosition = false;
 bool ChaDeMo::fault = false;
+bool ChaDeMo::contactorOpen = false;
 uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
 uint32_t ChaDeMo::rampedCurReq;
@@ -47,17 +48,20 @@ void ChaDeMo::SetEnabled(bool enabled)
 {
    chargeEnabled = enabled;
 
-   if (chargeEnabled)
-   {
-      if (chargeCurrentRequest > rampedCurReq)
-         rampedCurReq++;
-      else if (chargeCurrentRequest < rampedCurReq)
-         rampedCurReq--;
-   }
-   else
+   if (!chargeEnabled)
    {
       rampedCurReq = 0;
    }
+}
+
+void ChaDeMo::SetChargeCurrent(uint8_t current)
+{
+   chargeCurrentRequest = MIN(current, chargerMaxCurrent);
+
+   if (chargeCurrentRequest > rampedCurReq)
+      rampedCurReq++;
+   else if (chargeCurrentRequest < rampedCurReq)
+      rampedCurReq--;
 }
 
 void ChaDeMo::SendMessages()
@@ -75,8 +79,8 @@ void ChaDeMo::SendMessages()
 
    Can::Send(0x101, data);
 
-   data[0] = 1 | ((uint32_t)targetBatteryVoltage << 8) | (rampedCurReq << 24);
-   data[1] = (uint32_t)chargeEnabled << 8 | (uint32_t)parkingPosition << 9 | (uint32_t)fault << 10 | ((uint32_t)soc << 16);
+   data[0] = 1 | /*((uint32_t)targetBatteryVoltage << 8) |*/ 0x9A << 8 | 0x1 << 16 | ((uint32_t)rampedCurReq << 24);
+   data[1] = (uint32_t)fault | (uint32_t)chargeEnabled << 8 | (uint32_t)parkingPosition << 9 | (uint32_t)contactorOpen << 10 | ((uint32_t)soc << 16);
 
    Can::Send(0x102, data);
 }

@@ -31,10 +31,11 @@ class ChaDeMo
       static void SendMessages();
 
       static void SetTargetBatteryVoltage(uint16_t vtg) { targetBatteryVoltage = vtg; }
-      static void SetChargeCurrent(uint8_t cur) { chargeCurrentRequest = MIN(cur, chargerMaxCurrent); }
+      static void SetChargeCurrent(uint8_t cur);
       static void SetEnabled(bool enabled);
       /** Set vehicle in parking position, true=yes, 0=false */
       static void SetParkPosition(bool pos) { parkingPosition = !pos; }
+      static void SetContactor(bool state) { contactorOpen = !state; }
       static void SetFault(bool flt) { fault = flt; }
       /** Set current state of charge */
       static void SetSoC(s32fp soC) { soc = soC >> (FRAC_DIGITS - 1); }
@@ -44,13 +45,14 @@ class ChaDeMo
       static int GetChargerStatus() { return chargerStatus; }
       static bool ConnectorLocked() { return (chargerStatus & 0x4) != 0; }
       static bool ChargerStopRequest() { return (chargerStatus & 0x2A) != 0; }
-
+      static uint8_t GetRampedCurrentRequest() { return rampedCurReq; }
    protected:
 
    private:
       static bool chargeEnabled;
       static bool parkingPosition;
       static bool fault;
+      static bool contactorOpen;
       static uint8_t chargerStatus;
       static uint8_t chargerMaxCurrent;
       static uint8_t chargeCurrentRequest;

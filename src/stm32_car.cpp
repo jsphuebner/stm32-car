@@ -117,11 +117,11 @@ static void RunChaDeMo()
 {
    static uint32_t connectorLockTime = 0;
 
-   if (!chargeMode && rtc_get_counter_val() > 200) //200*10ms = 2s
+   if (!chargeMode && rtc_get_counter_val() > 100) //100*10ms = 1s
    {
-      //If after 2s we don't see voltage on the inverter it means
-      //the DC switches are disabled and we are in charge mode
-      if (Param::Get(Param::udcinv) == 0)
+      //If 2s after boot we don't see voltage on the inverter it means
+      //the inverter is off and we are in charge mode
+      if (Param::GetInt(Param::udcinv) < 10)
       {
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
@@ -129,28 +129,41 @@ static void RunChaDeMo()
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
       }
    }
-   if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
-   {
-      connectorLockTime = rtc_get_counter_val();
-      Param::SetInt(Param::opmode, MOD_CHARGELOCK);
-   }
-   //Start charging 3s after connector was locked
-   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 300)
+
+   /* 1s after entering charge mode, enable charge permission */
+   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && rtc_get_counter_val() > 200)
    {
       ChaDeMo::SetEnabled(true);
       //Use fuel gauge line to control charge enable signal
       timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, GAUGEMAX);
       timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
+   }
+
+   if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
+   {
+      connectorLockTime = rtc_get_counter_val();
+      Param::SetInt(Param::opmode, MOD_CHARGELOCK);
+   }
+   //10s after locking tell EVSE that we closed the contactor (in fact we have no control)
+   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 1000)
+   {
+      ChaDeMo::SetContactor(true);
       Param::SetInt(Param::opmode, MOD_CHARGE);
    }
-   ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
+
+   if (Param::GetInt(Param::opmode) == MOD_CHARGE)
+   {
+      ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
+   }
+
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
    ChaDeMo::SetSoC(Param::Get(Param::soc));
    ChaDeMo::SetFault(!LeafBMS::Alive(rtc_get_counter_val()));
+   Param::SetInt(Param::cdmcureq, ChaDeMo::GetRampedCurrentRequest());
 
    if (chargeMode)
    {
-      if (Param::GetInt(Param::batfull) || ChaDeMo::ChargerStopRequest() || !LeafBMS::Alive(rtc_get_counter_val()))
+      if (Param::GetInt(Param::batfull) || !LeafBMS::Alive(rtc_get_counter_val()))
       {
          ChaDeMo::SetEnabled(false);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
@@ -158,11 +171,15 @@ static void RunChaDeMo()
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
-      ChaDeMo::SendMessages();
       Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
+      ChaDeMo::SendMessages();
    }
    Param::SetInt(Param::cdmstatus, ChaDeMo::GetChargerStatus());
+   if (!LeafBMS::Alive(rtc_get_counter_val()))
+   {
+      ErrorMessage::Post(ERR_BMSCOMM);
+   }
 }
 
 static void SendVAG100msMessage()
@@ -215,7 +232,7 @@ static void Ms100Task(void)
    ProcessCruiseControlButtons();
    RunChaDeMo();
 
-   if (!chargeMode)
+   if (!chargeMode && rtc_get_counter_val() > 100)
    {
       if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
          Can::SendAll();
