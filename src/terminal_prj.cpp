@@ -49,7 +49,6 @@ static void PrintSerial(char *arg);
 static void MapCan(char *arg);
 static void PrintErrors(char *arg);
 static void Reset(char *arg);
-static void FastUart(char *arg);
 
 extern "C" const TERM_CMD TermCmds[] =
 {
@@ -70,7 +69,7 @@ extern "C" const TERM_CMD TermCmds[] =
   { "serial", PrintSerial },
   { "errors", PrintErrors },
   { "reset", Reset },
-  { "fastuart", FastUart },
+  //{ "fastuart", FastUart },
   { NULL, NULL }
 };
 
@@ -114,13 +113,13 @@ static void MapCan(char *arg)
 
    if (arg[0] == 'p')
    {
-      Can::IterateCanMap(PrintCanMap);
+      Can::GetInterface(0)->IterateCanMap(PrintCanMap);
       return;
    }
 
    if (arg[0] == 'c')
    {
-      Can::Clear();
+      Can::GetInterface(0)->Clear();
       printf("All message definitions cleared\r\n");
       return;
    }
@@ -155,7 +154,7 @@ static void MapCan(char *arg)
 
    if (op == 'd')
    {
-      result = Can::Remove(paramIdx);
+      result = Can::GetInterface(0)->Remove(paramIdx);
       printf("%d entries removed\r\n", result);
       return;
    }
@@ -178,11 +177,11 @@ static void MapCan(char *arg)
 
    if (op == 't')
    {
-      result = Can::AddSend(paramIdx, values[0], values[1], values[2], values[3]);
+      result = Can::GetInterface(0)->AddSend(paramIdx, values[0], values[1], values[2], values[3]);
    }
    else
    {
-      result = Can::AddRecv(paramIdx, values[0], values[1], values[2], values[3]);
+      result = Can::GetInterface(0)->AddRecv(paramIdx, values[0], values[1], values[2], values[3]);
    }
 
    switch (result)
@@ -225,7 +224,7 @@ static void PrintParamsJson(char *arg)
       {
          printf("%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,",comma, pAtr->name, pAtr->unit, Param::Get((Param::PARAM_NUM)idx));
 
-         if (Can::FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
+         if (Can::GetInterface(0)->FindMap((Param::PARAM_NUM)idx, canId, canOffset, canLength, canGain, isRx))
          {
             printf("\"canid\":%d,\"canoffset\":%d,\"canlength\":%d,\"cangain\":%d,\"isrx\":%s,",
                    canId, canOffset, canLength, canGain, isRx ? "true" : "false");
@@ -495,7 +494,7 @@ static void SaveParameters(char *arg)
    arg = arg;
    uint32_t crc = parm_save();
    printf("Parameters stored, CRC=%x\r\n", crc);
-   Can::Save();
+   Can::GetInterface(0)->Save();
    printf("CANMAP stored\r\n");
 }
 
@@ -536,11 +535,3 @@ static void Reset(char *arg)
    scb_reset_system();
 }
 
-static void FastUart(char *arg)
-{
-   arg = my_trim(arg);
-   int baud = arg[0] == '0' ? USART_BAUDRATE : 921600;
-   printf("OK\r\n");
-   printf("Baud rate now %d\r\n", baud);
-   usart_set_baudrate(TERM_USART, baud);
-}

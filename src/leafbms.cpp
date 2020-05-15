@@ -145,13 +145,13 @@ void LeafBMS::RequestNextFrame()
       {
          bmsGrpIndex++;
          canData[0] = 0x2 | 0x21 << 8 | bmsGrp << 16 | 0xff << 24;
-         Can::Send(0x79B, canData);
+         Can::GetInterface(0)->Send(0x79B, canData);
       }
       else if (bmsGrpIndex < 28)
       {
          bmsGrpIndex++;
          canData[0] = 0x30 | 0x1 << 8 | 0x0 << 16 | 0xff << 24;
-         Can::Send(0x79B, canData);
+         Can::GetInterface(0)->Send(0x79B, canData);
       }
       else
       {
@@ -178,13 +178,13 @@ void LeafBMS::RequestNextFrame()
       {
          bmsGrpIndex++;
          canData[0] = 0x2 | 0x21 << 8 | bmsGrp << 16 | 0xff << 24;
-         Can::Send(0x79B, canData);
+         Can::GetInterface(0)->Send(0x79B, canData);
       }
       else if (bmsGrpIndex < 4)
       {
          bmsGrpIndex++;
          canData[0] = 0x30 | 0x1 << 8 | 0x0 << 16 | 0xff << 24;
-         Can::Send(0x79B, canData);
+         Can::GetInterface(0)->Send(0x79B, canData);
       }
       else
       {
@@ -223,16 +223,16 @@ void LeafBMS::Send10msMessages()
    canData[1] = run10ms << 6 | 1 << 2 | relay << 14;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;
-   Can::Send(0x1D4, canData);
+   Can::GetInterface(0)->Send(0x1D4, canData);
 
    canData[0] = charge << 22; //quick charge
    canData[1] = run10ms << 16 | run10ms << 17;
-   Can::Send(0x1F2, canData);
+   Can::GetInterface(0)->Send(0x1F2, canData);
 
    canData[0] = Param::GetInt(Param::udcbms) / 2;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;
-   Can::Send(0x1DA, canData);
+   Can::GetInterface(0)->Send(0x1DA, canData);
 
    run10ms = (run10ms + 1) & 3;
 }
@@ -243,17 +243,17 @@ void LeafBMS::Send100msMessages()
    uint8_t crc;
    //TODO: charger power?
    canData[1] = 0xFF << 16 | (Param::GetInt(Param::opmode) >= MOD_CHARGESTART) << 6;
-   Can::Send(0x390, canData);
+   Can::GetInterface(0)->Send(0x390, canData);
 
    canData[0] = run100ms << 24;
    canData[1] = 0xB2;
    crc = Crc8ForHCM(5, (uint8_t*)canData);
    canData[1] |= crc << 8;
-   Can::Send(0x50C, canData);
+   Can::GetInterface(0)->Send(0x50C, canData);
 
    canData[0] = 0;
-   canData[1] = 20 << 24; //outside temp
-   Can::Send(0x54C, canData);
+   canData[1] = Param::GetInt(Param::tmpaux) << 24; //outside temp
+   Can::GetInterface(0)->Send(0x54C, canData);
 
    run100ms = (run100ms + 1) & 3;
 }

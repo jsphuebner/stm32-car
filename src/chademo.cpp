@@ -72,15 +72,15 @@ void ChaDeMo::SendMessages()
    data[0] = 0;
    data[1] = (targetBatteryVoltage + 10) | 200 << 16;
 
-   Can::Send(0x100, data);
+   Can::GetInterface(0)->Send(0x100, data);
 
    data[0] = 0x00FEFF00;
    data[1] = 0;
 
-   Can::Send(0x101, data);
+   Can::GetInterface(0)->Send(0x101, data);
 
-   data[0] = 1 | /*((uint32_t)targetBatteryVoltage << 8) |*/ 0x9A << 8 | 0x1 << 16 | ((uint32_t)rampedCurReq << 24);
+   data[0] = 1 | ((uint32_t)targetBatteryVoltage << 8) | ((uint32_t)rampedCurReq << 24);
    data[1] = (uint32_t)fault | (uint32_t)chargeEnabled << 8 | (uint32_t)parkingPosition << 9 | (uint32_t)contactorOpen << 10 | ((uint32_t)soc << 16);
 
-   Can::Send(0x102, data);
+   Can::GetInterface(0)->Send(0x102, data);
 }

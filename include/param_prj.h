@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 0.25.B
+#define VER 1.00.R
 
 
 /* Entries must be ordered as follows:
@@ -24,13 +24,14 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 101
+//Next param id (increase when adding new parameter!): 102
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
     PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,  -10,     7   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruisestep,  "rpm",     0,      1000,   50,     3   ) \
+    PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101  ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    2,      1.1,    4   ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
@@ -78,6 +79,8 @@
     VALUE_ENTRY(turns,        "",      2037 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
+    VALUE_ENTRY(potbrake,     "dig",   2075 ) \
+    VALUE_ENTRY(brakepressure,"dig",   2074 ) \
     VALUE_ENTRY(potnom,       "%",     2017 ) \
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
@@ -103,9 +106,10 @@
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
+    VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2074
+//Next value Id: 2078
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"

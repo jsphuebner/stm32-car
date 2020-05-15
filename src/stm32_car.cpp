@@ -22,6 +22,7 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
 #include "stm32_can.h"
 #include "terminal.h"
@@ -47,11 +48,13 @@ HWREV hwRev; //Hardware variant of board we are running on
 
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
+static Can* can;
 
 static void Ms500Task(void)
 {
    static modes modeLast = MOD_OFF;
    static int blinks = 0;
+   static int regenLevelLast = 0;
    modes mode = (modes)Param::GetInt(Param::opmode);
    bool cruiseLight = Param::GetBool(Param::cruiselight);
 
@@ -71,14 +74,56 @@ static void Ms500Task(void)
    else
    {
       Param::SetInt(Param::cruiselight, 0);
+      //Signal regen level by number of blinks + 1
+      if (mode == MOD_RUN && Param::GetInt(Param::regenlevel) != regenLevelLast)
+      {
+         blinks = 2 * (Param::GetInt(Param::regenlevel) + 1);
+      }
    }
+
+   regenLevelLast = Param::GetInt(Param::regenlevel);
    modeLast = mode;
 }
 
 static void ProcessCruiseControlButtons()
 {
+   static bool transition = false;
    int cruisespeed = Param::GetInt(Param::cruisespeed);
    int cruisestt = Param::GetInt(Param::cruisestt);
+
+   if (transition)
+   {
+      if ((cruisestt & (CRUISE_SETP | CRUISE_SETN)) == 0)
+      {
+         transition = false;
+      }
+      return;
+   }
+   else
+   {
+      if (cruisestt & (CRUISE_SETP | CRUISE_SETN))
+      {
+         transition = true;
+      }
+   }
+
+   //When pressing cruise control buttons and brake pedal
+   //Use them to adjust regen level
+   if (cruisestt & CRUISE_DISABLE || Param::GetBool(Param::din_brake))
+   {
+      int regenLevel = Param::GetInt(Param::regenlevel);
+      if (cruisestt & CRUISE_SETP)
+      {
+         regenLevel++;
+         regenLevel = MIN(3, regenLevel);
+      }
+      else if (cruisestt & CRUISE_SETN)
+      {
+         regenLevel--;
+         regenLevel = MAX(0, regenLevel);
+      }
+      Param::SetInt(Param::regenlevel, regenLevel);
+   }
 
    if (cruisestt & CRUISE_ON && Param::GetInt(Param::opmode) == MOD_RUN)
    {
@@ -195,7 +240,7 @@ static void SendVAG100msMessage()
 
    uint8_t canData[8] = { (uint8_t)(0x80 | ctr), 0, 0, seq1[seqCtr], seq2[seqCtr], seq3[seqCtr], seq4[seqCtr], seq5[seqCtr] };
 
-   Can::Send(0x580, (uint32_t*)canData);
+   can->Send(0x580, (uint32_t*)canData);
    seqCtr = (seqCtr + 1) & 0x3;
    ctr = (ctr + 1) & 0xF;
 }
@@ -235,7 +280,7 @@ static void Ms100Task(void)
    if (!chargeMode && rtc_get_counter_val() > 100)
    {
       if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
-         Can::SendAll();
+         can->SendAll();
       SendVAG100msMessage();
       SetFuelGauge();
    }
@@ -288,23 +333,63 @@ static void DerateBatteryPower(s32fp& throtmin, s32fp& throtmax)
 
 static void TractionControl(s32fp& throtmin, s32fp& throtmax)
 {
-   s32fp frontAxleSpeed = (Param::Get(Param::wheelfl) + Param::Get(Param::wheelfr)) / 2;
-   s32fp rearAxleSpeed = (Param::Get(Param::wheelrl) + Param::Get(Param::wheelrr)) / 2;
-   s32fp diff = frontAxleSpeed - rearAxleSpeed;
-   s32fp kp = Param::Get(Param::tractionkp);
+   if (!Param::GetBool(Param::espoff))
+   {
+      s32fp frontAxleSpeed = (Param::Get(Param::wheelfl) + Param::Get(Param::wheelfr)) / 2;
+      s32fp rearAxleSpeed = (Param::Get(Param::wheelrl) + Param::Get(Param::wheelrr)) / 2;
+      s32fp diff = frontAxleSpeed - rearAxleSpeed;
+      s32fp kp = Param::Get(Param::tractionkp);
 
-   //Here we assume front wheel drive
-   if (diff < 0)
-   {
-      //Front axle turns slower than rear axle -> too much breaking force
-      s32fp speedErr = Param::Get(Param::allowedlag) - diff;
-      throtmin = -FP_FROMINT(100) + FP_MUL(kp, speedErr);
+      //Here we assume front wheel drive
+      if (diff < 0)
+      {
+         //Front axle turns slower than rear axle -> too much breaking force
+         s32fp speedErr = Param::Get(Param::allowedlag) - diff;
+         throtmin = -FP_FROMINT(100) + FP_MUL(kp, speedErr);
+      }
+      else
+      {
+         //Front axle turns faster than rear axle -> wheel spin
+         s32fp speedErr = Param::Get(Param::allowedspin) - diff;
+         throtmax = FP_FROMINT(100) + FP_MUL(kp, speedErr);
+      }
    }
-   else
+}
+
+static void ProcessThrottle()
+{
+   int pot1 = AnaIn::throttle1.Get();
+   int pot2 = AnaIn::throttle2.Get();
+   int diff = pot2 - pot1 / 2;
+   int brakePressure = Param::GetInt(Param::brakepressure);
+   brakePressure = MIN(127, brakePressure);
+
+   diff = ABS(diff);
+
+   if (diff > 400)
    {
-      //Front axle turns faster than rear axle -> wheel spin
-      s32fp speedErr = Param::Get(Param::allowedspin) - diff;
-      throtmax = FP_FROMINT(100) + FP_MUL(kp, speedErr);
+      pot1 = 0;
+      pot2 = 0;
+   }
+
+   Param::SetInt(Param::pot, pot1);
+   Param::SetInt(Param::pot2, pot2);
+
+   switch (Param::GetInt(Param::regenlevel))
+   {
+   case 0:
+      Param::SetInt(Param::potbrake, 0);
+      break;
+   case 1:
+      Param::SetInt(Param::potbrake, brakePressure + 64);
+      break;
+   case 2:
+      Param::SetInt(Param::potbrake, brakePressure + 128);
+      break;
+   case 3:
+      brakePressure = MIN(95, brakePressure);
+      Param::SetInt(Param::potbrake, brakePressure + 160);
+      break;
    }
 }
 
@@ -338,7 +423,7 @@ static void Ms10Task(void)
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
    int oilhyst = Param::GetInt(Param::oilhyst);
-   int vacuum = AnaIn::Get(AnaIn::vacuum);
+   int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
    int opmode = Param::GetInt(Param::opmode);
    int cruiselight = Param::GetInt(Param::cruiselight);
@@ -381,15 +466,6 @@ static void Ms10Task(void)
 
    Param::SetFlt(Param::power, power);
 
-   if (vacuum > vacuumthresh)
-   {
-      DigIo::vacuum_out.Clear();
-   }
-   else if (vacuum < vacuumhyst)
-   {
-      DigIo::vacuum_out.Set();
-   }
-
    if (speed > oilthresh)
    {
       DigIo::oil_out.Set();
@@ -397,6 +473,18 @@ static void Ms10Task(void)
    else if (speed < oilhyst)
    {
       DigIo::oil_out.Clear();
+   }
+
+   if (opmode == MOD_RUN)
+   {
+      if (vacuum > vacuumthresh)
+      {
+         DigIo::vacuum_out.Clear();
+      }
+      else if (vacuum < vacuumhyst)
+      {
+         DigIo::vacuum_out.Set();
+      }
    }
 
    if (speed == 0 && opmode == MOD_RUN)
@@ -452,12 +540,11 @@ static void Ms10Task(void)
 
    s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
    Param::SetInt(Param::vacuum, vacuum);
-   Param::SetInt(Param::pot, AnaIn::Get(AnaIn::throttle1));
-   Param::SetInt(Param::pot2, AnaIn::Get(AnaIn::throttle2));
    Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
    Param::SetFlt(Param::chgcurlim, cur);
 
    GetDigInputs();
+   ProcessThrottle();
    LimitThrottle();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
@@ -472,10 +559,10 @@ static void Ms10Task(void)
       canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
       canData[1] = 0x1A | cruiselight << 18 | check << 24;
 
-      Can::Send(0x480, canData);
+      can->Send(0x480, canData);
 
       if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
-         Can::SendAll();
+         can->SendAll();
    }
 }
 
@@ -483,7 +570,7 @@ static void Ms10Task(void)
 extern void parm_Change(Param::PARAM_NUM paramNum)
 {
    if (Param::canspeed == paramNum)
-      Can::SetBaudrate((enum Can::baudrates)Param::GetInt(Param::canspeed));
+      can->SetBaudrate((Can::baudrates)Param::GetInt(Param::canspeed));
 }
 
 static void CanCallback(uint32_t id, uint32_t data[2])
@@ -507,29 +594,13 @@ static void CanCallback(uint32_t id, uint32_t data[2])
 
 static void ConfigureVariantIO()
 {
-   AnaIn::AnaInfo analogInputs[] = ANA_IN_ARRAY(ANA_IN_LIST);
-
-   hwRev = detect_hw();
+   hwRev = HW_REV1;
    Param::SetInt(Param::hwver, hwRev);
 
+   ANA_IN_CONFIGURE(ANA_IN_LIST);
    DIG_IO_CONFIGURE(DIG_IO_LIST);
 
-   switch (hwRev)
-   {
-      case HW_REV1:
-         analogInputs[AnaIn::il2].port = GPIOA;
-         analogInputs[AnaIn::il2].pin = 6;
-         break;
-      case HW_REV2:
-         break;
-      case HW_REV3:
-         break;
-      case HW_TESLA:
-         DigIo::temp1_out.Configure(GPIOC, GPIO8, PinMode::OUTPUT);
-         break;
-   }
-
-   AnaIn::Init(analogInputs);
+   AnaIn::Start();
 }
 
 extern "C" void tim2_isr(void)
@@ -548,17 +619,21 @@ extern "C" int main(void)
    term_Init();
    parm_load();
    parm_Change(Param::PARAM_LAST);
-   Can::Init((Can::baudrates)Param::GetInt(Param::canspeed));
-   Can::SetReceiveCallback(CanCallback);
-   Can::RegisterUserMessage(0x7BB);
-   Can::RegisterUserMessage(0x1DB);
-   Can::RegisterUserMessage(0x1DC);
-   Can::RegisterUserMessage(0x55B);
-   Can::RegisterUserMessage(0x5BC);
-   Can::RegisterUserMessage(0x5C0);
-   Can::RegisterUserMessage(0x108);
-   Can::RegisterUserMessage(0x109);
-   Can::RegisterUserMessage(0x420);
+
+   Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
+
+   c.SetReceiveCallback(CanCallback);
+   c.RegisterUserMessage(0x7BB);
+   c.RegisterUserMessage(0x1DB);
+   c.RegisterUserMessage(0x1DC);
+   c.RegisterUserMessage(0x55B);
+   c.RegisterUserMessage(0x5BC);
+   c.RegisterUserMessage(0x5C0);
+   c.RegisterUserMessage(0x108);
+   c.RegisterUserMessage(0x109);
+   c.RegisterUserMessage(0x420);
+
+   can = &c;
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
