@@ -539,6 +539,7 @@ static void Ms10Task(void)
    }
 
    s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
+   cur = FP_MUL(cur, Param::Get(Param::powerslack));
    Param::SetInt(Param::vacuum, vacuum);
    Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
    Param::SetFlt(Param::chgcurlim, cur);

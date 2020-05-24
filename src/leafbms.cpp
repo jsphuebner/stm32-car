@@ -132,6 +132,13 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
       int dtc = bytes[7];
 
       Param::SetInt(Param::lbcdtc, dtc);
+
+      if ((bytes[0] >> 6) == 1) //maximum
+      {
+         int tmpbat = bytes[2] >> 1;
+         tmpbat -= 40;
+         Param::SetInt(Param::tmpbat, tmpbat);
+      }
    }
 }
 

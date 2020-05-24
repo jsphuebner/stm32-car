@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.00.R
+#define VER 1.01.R
 
 
 /* Entries must be ordered as follows:
@@ -83,6 +83,7 @@
     VALUE_ENTRY(brakepressure,"dig",   2074 ) \
     VALUE_ENTRY(potnom,       "%",     2017 ) \
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
+    VALUE_ENTRY(tmpbat,       "°C",    2078 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
@@ -109,7 +110,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2078
+//Next value Id: 2079
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"
