@@ -10,9 +10,10 @@ This firmware is a hacky mishmash of VW and Nissan CAN code. It talks to the Nis
 - Read key switch, brake switch and cruise control buttons from CAN bus
 - Read brake vacuum sensor and control vacuum pump
 - Read throttle pedal and put it on the CAN bus
-- Read individual cell voltages from Nissan Leaf BMS
-- Read SoC, SoH etc. from the Nissan Leaf BMS
-- Control inverter charge mode depending on battery state
+- Read individual cell voltages from Nissan Leaf BMS (LBC)
+- Read SoC, SoH etc. from LBC
+- Read power limits from LBC and use them for inverter power limit and charge current control
+- Implement ChaDeMo protocol with values obtained from LBC
 - Control analog fuel gauge via two current source channels
 
 # CAN configuration
@@ -43,7 +44,7 @@ The only external depedencies are libopencm3 and libopeninv. You can download an
 
 `make get-deps`
 
-Now you can compile stm32-sine by typing
+Now you can compile stm32-car by typing
 
 `make`
 
