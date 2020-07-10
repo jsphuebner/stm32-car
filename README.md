@@ -18,24 +18,31 @@ This firmware is a hacky mishmash of VW and Nissan CAN code. It talks to the Nis
 # CAN configuration
 Not all CAN messages are hard coded, some are configured via the generic interface. The parameter names are strange, as I just used some left over stuff from the inverter firmware.
 Send these commands:
-- can tx pot 1 0 16 1 //this is for the inverter, configure however you want
-- can tx pot2 1 16 16 1 //this is for the inverter, configure however you want
-- can tx canio 1 32 6 1 //this is for the inverter, configure however you want
+
 - can tx speedmod 640 16 16 4 //speed dial with simulated idling engine so that power steering works
-- can tx din_forward 640 0 8 1 //apparently needed this constant
 - can tx tmpmod 648 8 8 1 //temperature dial
-- can tx turns 644 0 8 32 //copy from message #80
-- can tx turns 644 8 8 32 //copy from message #80
-- can tx din_forward 896 8 8 101 //apparently needed this constant
-- can tx din_forward 896 56 8 17 //apparently needed this constant
+- can tx pot 1 0 12 1 //this is for the inverter, configure however you want
+- can tx canio 1 12 6 1 //this is for the inverter, configure however you want
+- can tx cruisespeed 1 18 14 1 //this is for the inverter, configure however you want
+- can tx potbrake 1 32 9 1 //this is for the inverter, configure however you want
+- can tx heatcur 1 41 9 1 //this is for the inverter, configure however you want
+- can tx calcthrotmin 1 50 7 -1 //this is for the inverter, configure however you want
+- can tx calcthrotmax 1 57 7 1 //this is for the inverter, configure however you want
 - can rx din_start 1394 3 1 32 //grabs key switch start position
 - can rx din_brake 416 11 1 32 //grabs brake light switch
-- can rx din_forward 416 14 1 32 //some bit that is always 1
-- can rx opmode 2 0 3 32 //various inverter values
-- can rx udcinv 2 16 16 8
+- can rx espoff 416 9 1 32 //grabs ESP off button
+- can rx udcinv 2 16 16 8 //various inverter values
 - can rx tmpm 2 48 8 32
 - can rx speed 2 32 16 32
-- can rx turns 80 20 4 1 //grabs sequence from canbus
+- can rx uaux 2 8 8 4
+- can rx opmode 2 0 3 32
+- can rx cruisestt 906 8 4 32 //grabs cruise control buttons
+- can rx wheelfl 1184 4 12 5 //Wheel speeds
+- can rx wheelfr 1184 20 12 5
+- can rx wheelrl 1184 36 12 5
+- can rx wheelrr 1184 52 12 5
+- can rx handbrk 800 9 1 32 //Hand brake pulled?
+- can rx brakepressure 1192 16 15 32 //Brake pressure for added regen
 
 # Compiling
 You will need the arm-none-eabi toolchain: https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads

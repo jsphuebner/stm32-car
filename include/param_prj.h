@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.01.R
+#define VER 1.02.R
 
 
 /* Entries must be ordered as follows:
@@ -59,6 +59,7 @@
     VALUE_ENTRY(cdmcureq,    "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
     VALUE_ENTRY(lbcdtc,       "",      2050 ) \
+    VALUE_ENTRY(chgtime,      "min",   2079 ) \
     VALUE_ENTRY(batfull,      ONOFF,   2069 ) \
     VALUE_ENTRY(batmin,       "mV",    2044 ) \
     VALUE_ENTRY(batmax,       "mV",    2045 ) \
@@ -76,7 +77,6 @@
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
     VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
-    VALUE_ENTRY(turns,        "",      2037 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
@@ -110,7 +110,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2079
+//Next value Id: 2080
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"

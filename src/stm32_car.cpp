@@ -198,7 +198,9 @@ static void RunChaDeMo()
 
    if (Param::GetInt(Param::opmode) == MOD_CHARGE)
    {
-      ChaDeMo::SetChargeCurrent(Param::GetInt(Param::chgcurlim));
+      int chargeCur = Param::GetInt(Param::chgcurlim);
+      chargeCur = MIN(255, chargeCur);
+      ChaDeMo::SetChargeCurrent(chargeCur);
    }
 
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));

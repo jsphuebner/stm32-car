@@ -115,17 +115,17 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
    else if (id == 0x5BC)
    {
       int soh = bytes[4] >> 1;
+      int cond = (bytes[6] >> 5) + ((bytes[5] & 0x3) << 3);
+
+      //Only acquire quick charge remaining time
+      if (cond == 0)
+      {
+         int time = bytes[7] + ((bytes[6] & 0x1F) << 8);
+
+         Param::SetInt(Param::chgtime, time);
+      }
 
       Param::SetInt(Param::soh, soh);
-
-      /*s32fp soc = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
-      soc *= 80000; //80Wh * 100%
-      soc /= 24000;
-
-      if (Param::Get(Param::soctest) == 0)
-         Param::SetFlt(Param::soc, soc);
-      else
-         Param::SetFlt(Param::soc, Param::Get(Param::soctest));*/
    }
    else if (id == 0x5C0)
    {
