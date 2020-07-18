@@ -17,7 +17,7 @@ It also implements the ChaDeMo protocol and has been successfully tested on vari
 - Implement ChaDeMo protocol with values obtained from LBC
 - Control analog fuel gauge via two current source channels
 
-# CAN configuration
+# CAN configuration (VW)
 Not all CAN messages are hard coded, some are configured via the generic interface. The parameter names are strange, as I just used some left over stuff from the inverter firmware.
 Send these commands:
 

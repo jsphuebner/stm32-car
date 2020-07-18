@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.02.R
+#define VER 1.03.R
 
 
 /* Entries must be ordered as follows:
@@ -30,7 +30,8 @@
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
     PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,  -10,     7   ) \
-    PARAM_ENTRY(CAT_CRUISE,   cruisestep,  "rpm",     0,      1000,   50,     3   ) \
+    PARAM_ENTRY(CAT_CRUISE,   cruisestep,  "rpm",     1,      1000,   200,    3   ) \
+    PARAM_ENTRY(CAT_CRUISE,   cruiseramp,  "rpm/100ms",1,     1000,   20,     9   ) \
     PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101  ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    2,      1.1,    4   ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \

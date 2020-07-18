@@ -88,6 +88,7 @@ static void Ms500Task(void)
 static void ProcessCruiseControlButtons()
 {
    static bool transition = false;
+   static int cruiseTarget = 0;
    int cruisespeed = Param::GetInt(Param::cruisespeed);
    int cruisestt = Param::GetInt(Param::cruisestt);
 
@@ -109,7 +110,7 @@ static void ProcessCruiseControlButtons()
 
    //When pressing cruise control buttons and brake pedal
    //Use them to adjust regen level
-   if (cruisestt & CRUISE_DISABLE || Param::GetBool(Param::din_brake))
+   if (Param::GetBool(Param::din_brake))
    {
       int regenLevel = Param::GetInt(Param::regenlevel);
       if (cruisestt & CRUISE_SETP)
@@ -129,7 +130,12 @@ static void ProcessCruiseControlButtons()
    {
       if (cruisespeed <= 0)
       {
-         if (cruisestt & CRUISE_SETN)
+         if (cruisestt & CRUISE_SETN) //Start cruise control at current speed
+         {
+            cruiseTarget = Param::GetInt(Param::speed);
+            cruisespeed = cruiseTarget;
+         }
+         else if (cruisestt & CRUISE_SETP) //resume via ramp
          {
             cruisespeed = Param::GetInt(Param::speed);
          }
@@ -142,20 +148,36 @@ static void ProcessCruiseControlButtons()
          }
          else if (cruisestt & CRUISE_SETP)
          {
-            cruisespeed += Param::GetInt(Param::cruisestep);
+            cruiseTarget += Param::GetInt(Param::cruisestep);
          }
          else if (cruisestt & CRUISE_SETN)
          {
-            cruisespeed -= Param::GetInt(Param::cruisestep);
+            cruiseTarget -= Param::GetInt(Param::cruisestep);
          }
       }
    }
    else
    {
       cruisespeed = 0;
+      cruiseTarget = 0;
    }
 
-   Param::SetInt(Param::cruisespeed, cruisespeed);
+   if (cruisespeed <= 0)
+   {
+      Param::SetInt(Param::cruisespeed, 0);
+   }
+   else if (cruisespeed < cruiseTarget)
+   {
+      Param::SetInt(Param::cruisespeed, RAMPUP(cruisespeed, cruiseTarget, Param::GetInt(Param::cruiseramp)));
+   }
+   else if (cruisespeed > cruiseTarget)
+   {
+      Param::SetInt(Param::cruisespeed, RAMPDOWN(cruisespeed, cruiseTarget, Param::GetInt(Param::cruiseramp)));
+   }
+   else
+   {
+      Param::SetInt(Param::cruisespeed, cruisespeed);
+   }
 }
 
 static void RunChaDeMo()
