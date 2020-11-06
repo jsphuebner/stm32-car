@@ -4,6 +4,7 @@ It also implements the ChaDeMo protocol and has been successfully tested on vari
 
 # Features
 - Send all messages necessary to make the DSC light go off
+- Do simple traction control by comparing rear and front axle speeds
 - Fake the oil pressure sensor depending on motor rpm
 - Map the electric motor speed onto the speed dial
 - Map the electric motor temperature onto the temp dial
