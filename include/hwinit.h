@@ -33,7 +33,7 @@ void usart_setup(void);
 void nvic_setup(void);
 void rtc_setup(void);
 void tim_setup(void);
-HWREV detect_hw(void);
+void write_bootloader_pininit();
 
 #ifdef __cplusplus
 }

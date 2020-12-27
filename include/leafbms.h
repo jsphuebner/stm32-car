@@ -19,6 +19,7 @@
 #ifndef LEAFBMS_H
 #define LEAFBMS_H
 #include <stdint.h>
+#include "my_fp.h"
 
 class LeafBMS
 {
@@ -27,7 +28,7 @@ class LeafBMS
       static void RequestNextFrame();
       static uint16_t GetCellVoltage(int idx);
       static int GetCellStatus(int idx);
-      static void Send10msMessages();
+      static void Send10msMessages(s32fp dcdcVoltage);
       static void Send100msMessages();
       static bool Alive(uint32_t time);
       static const int NUMCELLS = 96;

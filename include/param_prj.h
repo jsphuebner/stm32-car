@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.03.R
+#define VER 1.07.R
 
 
 /* Entries must be ordered as follows:
@@ -24,37 +24,40 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 102
+//Next param id (increase when adding new parameter!): 103
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
     PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,  -10,     7   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruisestep,  "rpm",     1,      1000,   200,    3   ) \
-    PARAM_ENTRY(CAT_CRUISE,   cruiseramp,  "rpm/100ms",1,     1000,   20,     9   ) \
-    PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101  ) \
+    PARAM_ENTRY(CAT_CRUISE,   cruiserampup,"rpm/100ms",1,     1000,   20,     9   ) \
+    PARAM_ENTRY(CAT_CRUISE,   cruiserampdn,"rpm/100ms",1,     1000,   20,     11  ) \
+    PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101 ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    2,      1.1,    4   ) \
+    PARAM_ENTRY(CAT_POWER,    chargelimit, "A",       0,      255,    255,    10  ) \
+    PARAM_ENTRY(CAT_POWER,    soclimit,    "%",       0,      100,    100,    12  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
     PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "dig",     0,      10000,  900,    90  ) \
     PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "dig",     0,      10000,  500,    91  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcthresh,   "V",       0,      500,    380,    92  ) \
     PARAM_ENTRY(CAT_CONTACT,  udchyst,     "V",       0,      500,    360,    93  ) \
+    PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  ucellthresh, "mV",      3000,   4200,   4000,   96  ) \
     PARAM_ENTRY(CAT_CONTACT,  ucellhyst,   "mV",      3000,   4200,   3900,   97  ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
-    PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      95  ) \
+    PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     70,     60,     99  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatcurmax,  "A",       0,      400,    0,     100  ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
-    PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",        0,      100,    0,      0   ) \
+    PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
-    VALUE_ENTRY(hwver,        HWREVS,  2036 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(cdmcureq,    "A",     2076 ) \
@@ -74,6 +77,7 @@
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(idc,          "A",     2047 ) \
     VALUE_ENTRY(idccdm,       "A",     2067 ) \
+    VALUE_ENTRY(idcdc,        "A",     2081 ) \
     VALUE_ENTRY(soc,          "%",     2052 ) \
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
@@ -88,6 +92,7 @@
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
+    VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
@@ -111,10 +116,10 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2080
+//Next value Id: 2082
 
 #define VERSTR STRINGIFY(4=VER)
-#define OPMODES      "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat, 7=ChargeStart, 8=ConnectorLock, 9=Charge, 10=ChargeStop"
+#define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
 #define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define OKERR        "0=Error, 1=Ok, 2=na"
@@ -141,11 +146,6 @@ enum modes
 {
    MOD_OFF = 0,
    MOD_RUN,
-   MOD_MANUAL,
-   MOD_BOOST,
-   MOD_BUCK,
-   MOD_SINE,
-   MOD_ACHEAT,
    MOD_CHARGESTART,
    MOD_CHARGELOCK,
    MOD_CHARGE,
@@ -159,20 +159,6 @@ enum cruisestate
    CRUISE_DISABLE = 2,
    CRUISE_SETN = 4,
    CRUISE_SETP = 8
-};
-
-enum _tripmodes
-{
-   TRIP_ALLOFF = 0,
-   TRIP_DCSWON,
-   TRIP_PRECHARGEON
-};
-
-enum _dirmodes
-{
-   DIR_BUTTON = 0,
-   DIR_SWITCH = 1,
-   DIR_REVERSED = 2, //used as a flag
 };
 
 enum _canio

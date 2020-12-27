@@ -28,6 +28,10 @@
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/crc.h>
+#include <libopencm3/stm32/flash.h>
+#include "stm32_loader.h"
+#include "my_string.h"
 #include "hwdefs.h"
 #include "hwinit.h"
 
@@ -60,30 +64,36 @@ void clock_setup(void)
    rcc_periph_clock_enable(RCC_CAN1); //CAN
 }
 
-static bool is_floating(uint32_t port, uint16_t pin)
+void write_bootloader_pininit()
 {
-   //A pin is considered floating if its state can be controlled with the internal 30k pull-up/down resistor
-   bool isFloating = false;
-   gpio_set_mode(port, GPIO_MODE_INPUT, GPIO_CNF_INPUT_PULL_UPDOWN, pin);
-   gpio_set(port, pin); //pull up with internal ~30k
-   for (volatile int i = 0; i < 80000; i++);
-   isFloating = gpio_get(port, pin);
-   gpio_clear(port, pin);
-   for (volatile int i = 0; i < 80000; i++);
-   isFloating &= gpio_get(port, pin) == 0;
-   return isFloating;
-}
+   struct pincommands *flashCommands = (struct pincommands *)PINDEF_ADDRESS;
+   struct pincommands commands;
 
-HWREV detect_hw()
-{
-   if (is_floating(GPIOC, GPIO9)) //Desat pin is floating
-      return HW_REV1;
-   else if (is_floating(GPIOA, GPIO0)) //uvlo/button pin is floating
-      return HW_REV3;
-   else if (is_floating(GPIOC, GPIO8)) //bms input is output for mux and floating
-      return HW_TESLA;
-   else
-      return HW_REV2;
+   memset32((int*)&commands, 0, PINDEF_NUMWORDS);
+
+   //Keep vacuum pump off in bootloader
+   commands.pindef[0].port = GPIOB;
+   commands.pindef[0].pin = GPIO1;
+   commands.pindef[0].inout = PIN_OUT;
+   commands.pindef[0].level = 1;
+
+   crc_reset();
+   uint32_t crc = crc_calculate_block(((uint32_t*)&commands), PINDEF_NUMWORDS);
+   commands.crc = crc;
+
+   if (commands.crc != flashCommands->crc)
+   {
+      flash_unlock();
+      flash_erase_page(PINDEF_ADDRESS);
+
+      //Write flash including crc, therefor <=
+      for (uint32_t idx = 0; idx <= PINDEF_NUMWORDS; idx++)
+      {
+         uint32_t* pData = ((uint32_t*)&commands) + idx;
+         flash_program_word(PINDEF_ADDRESS + idx * sizeof(uint32_t), *pData);
+      }
+      flash_lock();
+   }
 }
 
 /**
@@ -96,22 +106,19 @@ void usart_setup(void)
 
    usart_set_baudrate(TERM_USART, USART_BAUDRATE);
    usart_set_databits(TERM_USART, 8);
-   usart_set_stopbits(TERM_USART, USART_STOPBITS_2);
+   usart_set_stopbits(TERM_USART, USART_STOPBITS_1);
    usart_set_mode(TERM_USART, USART_MODE_TX_RX);
    usart_set_parity(TERM_USART, USART_PARITY_NONE);
    usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
    usart_enable_rx_dma(TERM_USART);
+   usart_enable_tx_dma(TERM_USART);
 
-   if (hwRev != HW_REV1)
-   {
-      usart_enable_tx_dma(TERM_USART);
-      dma_channel_reset(DMA1, TERM_USART_DMATX);
-      dma_set_read_from_memory(DMA1, TERM_USART_DMATX);
-      dma_set_peripheral_address(DMA1, TERM_USART_DMATX, (uint32_t)&TERM_USART_DR);
-      dma_set_peripheral_size(DMA1, TERM_USART_DMATX, DMA_CCR_PSIZE_8BIT);
-      dma_set_memory_size(DMA1, TERM_USART_DMATX, DMA_CCR_MSIZE_8BIT);
-      dma_enable_memory_increment_mode(DMA1, TERM_USART_DMATX);
-   }
+   dma_channel_reset(DMA1, TERM_USART_DMATX);
+   dma_set_read_from_memory(DMA1, TERM_USART_DMATX);
+   dma_set_peripheral_address(DMA1, TERM_USART_DMATX, (uint32_t)&TERM_USART_DR);
+   dma_set_peripheral_size(DMA1, TERM_USART_DMATX, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA1, TERM_USART_DMATX, DMA_CCR_MSIZE_8BIT);
+   dma_enable_memory_increment_mode(DMA1, TERM_USART_DMATX);
 
    dma_channel_reset(DMA1, TERM_USART_DMARX);
    dma_set_peripheral_address(DMA1, TERM_USART_DMARX, (uint32_t)&TERM_USART_DR);

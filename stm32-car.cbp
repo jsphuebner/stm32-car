@@ -96,32 +96,7 @@
 		<Unit filename="test/Makefile">
 			<Option target="Test" />
 		</Unit>
-		<Unit filename="test/test.h">
-			<Option target="Test" />
-		</Unit>
-		<Unit filename="test/test_fp.cpp">
-			<Option target="Test" />
-		</Unit>
-		<Unit filename="test/test_fu.cpp">
-			<Option target="Test" />
-		</Unit>
-		<Unit filename="test/test_list.h">
-			<Option target="Test" />
-		</Unit>
-		<Unit filename="test/test_main.cpp">
-			<Option target="Test" />
-		</Unit>
-		<Unit filename="test/test_throttle.cpp">
-			<Option target="Test" />
-		</Unit>
 		<Extensions>
-			<code_completion />
-			<debugger>
-				<remote_debugging target="STM32F103">
-					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" additional_cmds="load&#x0A;r" />
-				</remote_debugging>
-			</debugger>
-			<envvars />
 			<DoxyBlocks>
 				<comment_style block="0" line="0" />
 				<doxyfile_project />
@@ -131,6 +106,11 @@
 				<doxyfile_dot class_diagrams="1" have_dot="1" />
 				<general />
 			</DoxyBlocks>
+			<debugger>
+				<remote_debugging target="STM32F103">
+					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" additional_cmds="load&#x0A;r" />
+				</remote_debugging>
+			</debugger>
 		</Extensions>
 	</Project>
 </CodeBlocks_project_file>

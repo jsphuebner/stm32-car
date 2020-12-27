@@ -168,11 +168,11 @@ static void ProcessCruiseControlButtons()
    }
    else if (cruisespeed < cruiseTarget)
    {
-      Param::SetInt(Param::cruisespeed, RAMPUP(cruisespeed, cruiseTarget, Param::GetInt(Param::cruiseramp)));
+      Param::SetInt(Param::cruisespeed, RAMPUP(cruisespeed, cruiseTarget, Param::GetInt(Param::cruiserampup)));
    }
    else if (cruisespeed > cruiseTarget)
    {
-      Param::SetInt(Param::cruisespeed, RAMPDOWN(cruisespeed, cruiseTarget, Param::GetInt(Param::cruiseramp)));
+      Param::SetInt(Param::cruisespeed, RAMPDOWN(cruisespeed, cruiseTarget, Param::GetInt(Param::cruiserampdn)));
    }
    else
    {
@@ -221,8 +221,14 @@ static void RunChaDeMo()
    if (Param::GetInt(Param::opmode) == MOD_CHARGE)
    {
       int chargeCur = Param::GetInt(Param::chgcurlim);
-      chargeCur = MIN(255, chargeCur);
+      int chargeLim = Param::GetInt(Param::chargelimit);
+      chargeCur = MIN(MIN(255, chargeLim), chargeCur);
       ChaDeMo::SetChargeCurrent(chargeCur);
+   }
+
+   if (Param::GetInt(Param::opmode) == MOD_CHARGEND)
+   {
+      ChaDeMo::SetChargeCurrent(0);
    }
 
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
@@ -232,7 +238,10 @@ static void RunChaDeMo()
 
    if (chargeMode)
    {
-      if (Param::GetInt(Param::batfull) || !LeafBMS::Alive(rtc_get_counter_val()))
+      if (Param::GetInt(Param::batfull) ||
+          Param::Get(Param::soc) >= Param::Get(Param::soclimit) ||
+          Param::GetInt(Param::chargelimit) == 0 ||
+          !LeafBMS::Alive(rtc_get_counter_val()))
       {
          ChaDeMo::SetEnabled(false);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
@@ -273,7 +282,10 @@ static void SetFuelGauge()
 {
    int dcoffset = Param::GetInt(Param::gaugeoffset);
    s32fp dcgain = Param::Get(Param::gaugegain);
-   int soc = Param::GetInt(Param::soc) - Param::GetInt(Param::gaugebalance);
+   int soctest = Param::Get(Param::soctest);
+   int soc = Param::GetInt(Param::soc);
+   soc = MAX(soc, soctest);
+   soc -= Param::GetInt(Param::gaugebalance);
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
    int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
 
@@ -316,9 +328,9 @@ static void GetDigInputs()
 
    if (Param::GetBool(Param::din_cruise))
       canio |= CAN_IO_CRUISE;
-   if (Param::GetBool(Param::din_start))
+   if (Param::GetBool(Param::din_start) || DigIo::start_in.Get())
       canio |= CAN_IO_START;
-   if (Param::GetBool(Param::din_brake))
+   if (Param::GetBool(Param::din_brake) || DigIo::brake_in.Get())
       canio |= CAN_IO_BRAKE;
    if (Param::GetBool(Param::din_forward))
       canio |= CAN_IO_FWD;
@@ -443,6 +455,7 @@ static void Ms10Task(void)
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
    static int speedTimeout;
+   static int dcdcDelay = 100;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
@@ -462,6 +475,7 @@ static void Ms10Task(void)
    s32fp idc = Param::Get(Param::idc);
    s32fp udcbms = Param::Get(Param::udcbms);
    s32fp power = FP_MUL(idc, udcbms) / 1000;
+   s32fp dcdcVoltage = 0;
    int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
 
    seq1Ctr = (seq1Ctr + 1) & 0x3;
@@ -499,7 +513,7 @@ static void Ms10Task(void)
       DigIo::oil_out.Clear();
    }
 
-   if (opmode == MOD_RUN)
+   if (opmode < MOD_CHARGESTART)
    {
       if (vacuum > vacuumthresh)
       {
@@ -540,17 +554,33 @@ static void Ms10Task(void)
    //If inverter voltage drops 50V below BMS voltage
    //Drop DC contactor and put inverter in neutral
    //This happens if charger is plugged in while car is still in drive
-   if (opmode == MOD_OFF || udcinv < (udcbms - FP_FROMINT(50)))
+   if (udcinv < (udcbms - FP_FROMINT(50)))
    {
-      DigIo::dcsw_out.Clear();
-      Param::SetInt(Param::speedmod, 0);
       Param::SetInt(Param::din_forward, 0);
+      DigIo::dcsw_out.Clear();
+   }
+   else if (opmode == MOD_OFF)
+   {
+      //Do not drop DC contactor in off mode because pre-charge
+      //is always on and we will burn the precharge resistor
+      //because the DC/DC converter still draws power
+      Param::SetInt(Param::speedmod, 0);
+      dcdcDelay = 100;
    }
    else
    {
       DigIo::dcsw_out.Set();
       Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
       Param::SetInt(Param::din_forward, 1);
+
+      if (dcdcDelay > 0)
+      {
+         dcdcDelay--;
+      }
+      else
+      {
+         dcdcVoltage = Param::Get(Param::udcdc);
+      }
    }
 
    if (udcinv > udcthresh || ucellmax > ucellthresh)
@@ -574,7 +604,7 @@ static void Ms10Task(void)
 
    ErrorMessage::SetTime(rtc_get_counter_val());
 
-   LeafBMS::Send10msMessages();
+   LeafBMS::Send10msMessages(dcdcVoltage);
    if (!chargeMode)
    {
       uint32_t canData[2];
@@ -619,9 +649,6 @@ static void CanCallback(uint32_t id, uint32_t data[2])
 
 static void ConfigureVariantIO()
 {
-   hwRev = HW_REV1;
-   Param::SetInt(Param::hwver, hwRev);
-
    ANA_IN_CONFIGURE(ANA_IN_LIST);
    DIG_IO_CONFIGURE(DIG_IO_LIST);
 
@@ -637,6 +664,7 @@ extern "C" int main(void)
 {
    clock_setup();
    rtc_setup();
+   write_bootloader_pininit();
    ConfigureVariantIO();
    usart_setup();
    tim_setup();
@@ -667,7 +695,6 @@ extern "C" int main(void)
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
-   DigIo::vacuum_out.Set();
    Param::SetInt(Param::version, 4); //backward compatibility
 
    term_Run();

@@ -37,14 +37,6 @@
 #define PARAM_BLKSIZE FLASH_PAGE_SIZE
 #define CANMAP_ADDRESS 0x0801F800
 
-#define REV_CNT_IC         hwRev == HW_REV1 ? TIM_IC3 : TIM_IC1
-#define REV_CNT_CCR        hwRev == HW_REV1 ? TIM3_CCR3 : TIM3_CCR1
-#define REV_CNT_CCR_PTR    hwRev == HW_REV1 ? (uint32_t)&TIM3_CCR3 : (uint32_t)&TIM3_CCR1
-#define REV_CNT_CCER       hwRev == HW_REV1 ? TIM_CCER_CC3P : TIM_CCER_CC1P
-#define REV_CNT_SR         hwRev == HW_REV1 ? TIM_SR_CC3IF : TIM_SR_CC1IF
-#define REV_CNT_DMAEN      hwRev == HW_REV1 ? TIM_DIER_CC3DE : TIM_DIER_CC1DE
-#define REV_CNT_DMACHAN    hwRev == HW_REV1 ? DMA_CHANNEL2 : DMA_CHANNEL6
-#define REV_CNT_DMA_CNDTR  hwRev == HW_REV1 ? DMA1_CNDTR2 : DMA1_CNDTR6
 
 typedef enum
 {
