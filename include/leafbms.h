@@ -20,16 +20,17 @@
 #define LEAFBMS_H
 #include <stdint.h>
 #include "my_fp.h"
+#include "stm32_can.h"
 
 class LeafBMS
 {
    public:
       static void DecodeCAN(int id, uint32_t data[2], uint32_t time);
-      static void RequestNextFrame();
+      static void RequestNextFrame(Can* can);
       static uint16_t GetCellVoltage(int idx);
       static int GetCellStatus(int idx);
-      static void Send10msMessages(s32fp dcdcVoltage);
-      static void Send100msMessages();
+      static void Send10msMessages(Can* can, s32fp dcdcVoltage);
+      static void Send100msMessages(Can* can);
       static bool Alive(uint32_t time);
       static const int NUMCELLS = 96;
 

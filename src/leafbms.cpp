@@ -20,7 +20,6 @@
 #include "leafbms.h"
 #include "my_fp.h"
 #include "my_math.h"
-#include "stm32_can.h"
 #include "params.h"
 
 #define CRCKEY 0x185
@@ -139,7 +138,7 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
    }
 }
 
-void LeafBMS::RequestNextFrame()
+void LeafBMS::RequestNextFrame(Can* can)
 {
    uint32_t canData[2] = { 0, 0xffffffff };
 
@@ -149,13 +148,13 @@ void LeafBMS::RequestNextFrame()
       {
          bmsGrpIndex++;
          canData[0] = 0x2 | 0x21 << 8 | bmsGrp << 16 | 0xff << 24;
-         Can::GetInterface(0)->Send(0x79B, canData);
+         can->Send(0x79B, canData);
       }
       else if (bmsGrpIndex < 28)
       {
          bmsGrpIndex++;
          canData[0] = 0x30 | 0x1 << 8 | 0x0 << 16 | 0xff << 24;
-         Can::GetInterface(0)->Send(0x79B, canData);
+         can->Send(0x79B, canData);
       }
       else
       {
@@ -182,13 +181,13 @@ void LeafBMS::RequestNextFrame()
       {
          bmsGrpIndex++;
          canData[0] = 0x2 | 0x21 << 8 | bmsGrp << 16 | 0xff << 24;
-         Can::GetInterface(0)->Send(0x79B, canData);
+         can->Send(0x79B, canData);
       }
       else if (bmsGrpIndex < 4)
       {
          bmsGrpIndex++;
          canData[0] = 0x30 | 0x1 << 8 | 0x0 << 16 | 0xff << 24;
-         Can::GetInterface(0)->Send(0x79B, canData);
+         can->Send(0x79B, canData);
       }
       else
       {
@@ -217,7 +216,7 @@ int LeafBMS::GetCellStatus(int idx)
    return -1;
 }
 
-void LeafBMS::Send10msMessages(s32fp dcdcVoltage)
+void LeafBMS::Send10msMessages(Can* can, s32fp dcdcVoltage)
 {
    uint32_t canData[2] = { 0, 0 };
    int relay = Param::GetInt(Param::opmode) != MOD_OFF;
@@ -232,37 +231,42 @@ void LeafBMS::Send10msMessages(s32fp dcdcVoltage)
    canData[1] = run10ms << 6 | 1 << 2 | relay << 14;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;
-   Can::GetInterface(0)->Send(0x1D4, canData);
+   can->Send(0x1D4, canData);
 
    canData[0] = charge << 22; //quick charge
-   canData[1] = run10ms << 16 | run10ms << 17;
-   Can::GetInterface(0)->Send(0x1F2, canData);
+   canData[1] = run10ms << 17;
+   can->Send(0x1F2, canData);
 
    canData[0] = Param::GetInt(Param::udcbms) / 2;
+   canData[1] = run10ms << 17;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;
-   Can::GetInterface(0)->Send(0x1DA, canData);
+   can->Send(0x1DA, canData);
 
    run10ms = (run10ms + 1) & 3;
 }
 
-void LeafBMS::Send100msMessages()
+void LeafBMS::Send100msMessages(Can* can)
 {
    uint32_t canData[2] = { 0, 0 };
    uint8_t crc;
    //TODO: charger power?
-   canData[1] = 0xFF << 16 | (Param::GetInt(Param::opmode) >= MOD_CHARGESTART) << 6;
-   Can::GetInterface(0)->Send(0x390, canData);
+   canData[1] = 0xF4 << 16 | 1 << 8 | (Param::GetInt(Param::opmode) >= MOD_CHARGESTART) << 6;
+   can->Send(0x390, canData);
+
+   canData[0] = 0xC0 << 24;
+   canData[1] = 0;
+   can->Send(0x50B, canData);
 
    canData[0] = run100ms << 24;
    canData[1] = 0xB2;
    crc = Crc8ForHCM(5, (uint8_t*)canData);
    canData[1] |= crc << 8;
-   Can::GetInterface(0)->Send(0x50C, canData);
+   can->Send(0x50C, canData);
 
    canData[0] = 0;
    canData[1] = Param::GetInt(Param::tmpaux) << 24; //outside temp
-   Can::GetInterface(0)->Send(0x54C, canData);
+   can->Send(0x54C, canData);
 
    run100ms = (run100ms + 1) & 3;
 }

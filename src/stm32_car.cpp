@@ -233,7 +233,6 @@ static void RunChaDeMo()
 
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
    ChaDeMo::SetSoC(Param::Get(Param::soc));
-   ChaDeMo::SetFault(!LeafBMS::Alive(rtc_get_counter_val()));
    Param::SetInt(Param::cdmcureq, ChaDeMo::GetRampedCurrentRequest());
 
    if (chargeMode)
@@ -243,15 +242,20 @@ static void RunChaDeMo()
           Param::GetInt(Param::chargelimit) == 0 ||
           !LeafBMS::Alive(rtc_get_counter_val()))
       {
+         if (!LeafBMS::Alive(rtc_get_counter_val()))
+         {
+            ChaDeMo::SetGeneralFault();
+         }
          ChaDeMo::SetEnabled(false);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
+      ChaDeMo::CheckSensorDeviation(Param::GetInt(Param::udcbms));
       Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
-      ChaDeMo::SendMessages();
+      ChaDeMo::SendMessages(can);
    }
    Param::SetInt(Param::cdmstatus, ChaDeMo::GetChargerStatus());
    if (!LeafBMS::Alive(rtc_get_counter_val()))
@@ -281,11 +285,14 @@ static void SendVAG100msMessage()
 static void SetFuelGauge()
 {
    int dcoffset = Param::GetInt(Param::gaugeoffset);
+   int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
-   int soctest = Param::Get(Param::soctest);
+   int soctest = Param::GetInt(Param::soctest);
    int soc = Param::GetInt(Param::soc);
-   soc = MAX(soc, soctest);
+   soc = soctest != 0 ? soctest : soc;
    soc -= Param::GetInt(Param::gaugebalance);
+   //Temperature compensation 1 digit per degree
+   dcoffset -= tmpaux;
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
    int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
 
@@ -301,8 +308,8 @@ static void Ms100Task(void)
    Param::SetFlt(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
 
-   LeafBMS::RequestNextFrame();
-   LeafBMS::Send100msMessages();
+   LeafBMS::RequestNextFrame(can);
+   LeafBMS::Send100msMessages(can);
 
    if (!LeafBMS::Alive(rtc_get_counter_val()))
    {
@@ -396,16 +403,13 @@ static void ProcessThrottle()
 {
    int pot1 = AnaIn::throttle1.Get();
    int pot2 = AnaIn::throttle2.Get();
-   int diff = pot2 - pot1 / 2;
    int brakePressure = Param::GetInt(Param::brakepressure);
    brakePressure = MIN(127, brakePressure);
 
-   diff = ABS(diff);
-
-   if (diff > 400)
+   /* hard coded throttle redundance */
+   if (pot2 > 50)
    {
-      pot1 = 0;
-      pot2 = 0;
+      pot1 = MIN(pot1, pot2 * 2);
    }
 
    Param::SetInt(Param::pot, pot1);
@@ -604,7 +608,7 @@ static void Ms10Task(void)
 
    ErrorMessage::SetTime(rtc_get_counter_val());
 
-   LeafBMS::Send10msMessages(dcdcVoltage);
+   LeafBMS::Send10msMessages(can, dcdcVoltage);
    if (!chargeMode)
    {
       uint32_t canData[2];
