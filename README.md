@@ -12,14 +12,28 @@ It also implements the ChaDeMo protocol and has been successfully tested on vari
 - Read key switch, brake switch and cruise control buttons from CAN bus
 - Read brake vacuum sensor and control vacuum pump
 - Read throttle pedal and put it on the CAN bus
+  - Including support for dual channel throttles
 - Read individual cell voltages from Nissan Leaf BMS (LBC)
 - Read SoC, SoH etc. from LBC
 - Read power limits from LBC and use them for inverter power limit and charge current control
 - Implement ChaDeMo protocol with values obtained from LBC
 - Control analog fuel gauge via two current source channels
 
+# IO pins
+- throttle1 (pot) - PC1
+- throttle2 (pot2) - PC0
+- Vacuum sensor - PC2
+- 12V level - PA3
+- digital start input - PB6
+- digital brake input - PA2
+- DC switch output - PC13
+- Precharge output - PC11
+- Vacuum pump output - PB1
+- Oil sensor simulation - PC5
+- Fuel sensor simulation - PB7, PB8 (positive, negative)
+
 # CAN configuration (VW)
-Not all CAN messages are hard coded, some are configured via the generic interface. The parameter names are strange, as I just used some left over stuff from the inverter firmware.
+Not all CAN messages are hard coded, some are configured via the generic interface.
 Send these commands:
 
 - can tx speedmod 640 16 16 4 //speed dial with simulated idling engine so that power steering works
