@@ -57,6 +57,7 @@ static void Ms500Task(void)
    static int regenLevelLast = 0;
    modes mode = (modes)Param::GetInt(Param::opmode);
    bool cruiseLight = Param::GetBool(Param::cruiselight);
+   int regenLevel = Param::GetInt(Param::regenlevel);
 
    if (mode == MOD_RUN && modeLast == MOD_OFF)
    {
@@ -75,9 +76,10 @@ static void Ms500Task(void)
    {
       Param::SetInt(Param::cruiselight, 0);
       //Signal regen level by number of blinks + 1
-      if (mode == MOD_RUN && Param::GetInt(Param::regenlevel) != regenLevelLast)
+      if (mode == MOD_RUN && regenLevel != regenLevelLast)
       {
-         blinks = 2 * (Param::GetInt(Param::regenlevel) + 1);
+
+         blinks = 2 * (regenLevel + 1);
       }
    }
 
@@ -123,6 +125,7 @@ static void ProcessCruiseControlButtons()
          regenLevel--;
          regenLevel = MAX(0, regenLevel);
       }
+
       Param::SetInt(Param::regenlevel, regenLevel);
    }
 
@@ -349,31 +352,6 @@ static void GetDigInputs()
    Param::SetInt(Param::canio, canio);
 }
 
-static void DerateBatteryPower(s32fp& throtmin, s32fp& throtmax)
-{
-   static s32fp powerFiltered = 0;
-   s32fp power = Param::Get(Param::power);
-   s32fp powerslack = Param::Get(Param::powerslack);
-   s32fp chglim = Param::Get(Param::chglim);
-   s32fp dislim = Param::Get(Param::dislim); //allow a bit more power
-
-   powerFiltered = IIRFILTER(powerFiltered, power, 4);
-
-   if (power < 0) //discharging
-   {
-      dislim = FP_MUL(powerslack, dislim);
-      power = -power; //Make it positive
-      s32fp powErr = dislim - powerFiltered;
-      throtmax = FP_FROMINT(100) + powErr * 10;
-   }
-   else
-   {
-      chglim = FP_MUL(powerslack, chglim);
-      s32fp powErr = chglim - powerFiltered;
-      throtmin = -FP_FROMINT(50) - powErr * 10;
-   }
-}
-
 static void TractionControl(s32fp& throtmin, s32fp& throtmax)
 {
    if (!Param::GetBool(Param::espoff))
@@ -404,7 +382,9 @@ static void ProcessThrottle()
    int pot1 = AnaIn::throttle1.Get();
    int pot2 = AnaIn::throttle2.Get();
    int brakePressure = Param::GetInt(Param::brakepressure);
-   brakePressure = MIN(127, brakePressure);
+
+   brakePressure += Param::GetInt(Param::regenlevel) * 40;
+   brakePressure = MIN(255, brakePressure);
 
    /* hard coded throttle redundance */
    if (pot2 > 50)
@@ -414,35 +394,15 @@ static void ProcessThrottle()
 
    Param::SetInt(Param::pot, pot1);
    Param::SetInt(Param::pot2, pot2);
-
-   switch (Param::GetInt(Param::regenlevel))
-   {
-   case 0:
-      Param::SetInt(Param::potbrake, 0);
-      break;
-   case 1:
-      Param::SetInt(Param::potbrake, brakePressure + 64);
-      break;
-   case 2:
-      Param::SetInt(Param::potbrake, brakePressure + 128);
-      break;
-   case 3:
-      brakePressure = MIN(95, brakePressure);
-      Param::SetInt(Param::potbrake, brakePressure + 160);
-      break;
-   }
+   Param::SetInt(Param::potbrake, brakePressure);
 }
 
 static void LimitThrottle()
 {
-   s32fp throtminBattery = -FP_FROMINT(100), throtmaxBattery = FP_FROMINT(100);
-   s32fp throtminTraction = -FP_FROMINT(100), throtmaxTraction = FP_FROMINT(100);
+   s32fp throtmin = -FP_FROMINT(100), throtmax = FP_FROMINT(100);
 
-   DerateBatteryPower(throtminBattery, throtmaxBattery);
-   TractionControl(throtminTraction, throtmaxTraction);
+   TractionControl(throtmin, throtmax);
 
-   s32fp throtmin = MAX(throtminBattery, throtminTraction);
-   s32fp throtmax = MIN(throtmaxBattery, throtmaxTraction);
    throtmin = MIN(0, throtmin);
    throtmin = MAX(-FP_FROMINT(100), throtmin);
    throtmax = MIN(FP_FROMINT(100), throtmax);
@@ -471,11 +431,6 @@ static void Ms10Task(void)
    int errlights = Param::GetInt(Param::errlights);
    s32fp tmpm = Param::Get(Param::tmpm);
    s32fp udcinv = Param::Get(Param::udcinv);
-   s32fp udcthresh = Param::Get(Param::udcthresh);
-   s32fp udchyst = Param::Get(Param::udchyst);
-   s32fp ucellthresh = Param::Get(Param::ucellthresh);
-   s32fp ucellhyst = Param::Get(Param::ucellhyst);
-   s32fp ucellmax = Param::Get(Param::batmax);
    s32fp idc = Param::Get(Param::idc);
    s32fp udcbms = Param::Get(Param::udcbms);
    s32fp power = FP_MUL(idc, udcbms) / 1000;
@@ -587,20 +542,14 @@ static void Ms10Task(void)
       }
    }
 
-   if (udcinv > udcthresh || ucellmax > ucellthresh)
-   {
-      Param::SetInt(Param::din_bms, 1);
-   }
-   else if (udcinv < udchyst && ucellmax < ucellhyst)
-   {
-      Param::SetInt(Param::din_bms, 0);
-   }
-
    s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
    cur = FP_MUL(cur, Param::Get(Param::powerslack));
    Param::SetInt(Param::vacuum, vacuum);
    Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
    Param::SetFlt(Param::chgcurlim, cur);
+   cur = FP_DIV((1000 * Param::Get(Param::dislim)), Param::Get(Param::udcbms));
+   cur = FP_MUL(cur, Param::Get(Param::powerslack));
+   Param::SetFlt(Param::discurlim, cur);
 
    GetDigInputs();
    ProcessThrottle();
@@ -666,19 +615,19 @@ extern "C" void tim2_isr(void)
 
 extern "C" int main(void)
 {
+   extern const TERM_CMD termCmds[];
+
    clock_setup();
    rtc_setup();
    write_bootloader_pininit();
    ConfigureVariantIO();
-   usart_setup();
    tim_setup();
    nvic_setup();
-   term_Init();
    parm_load();
-   parm_Change(Param::PARAM_LAST);
 
    Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
 
+   c.SetNodeId(2);
    c.SetReceiveCallback(CanCallback);
    c.RegisterUserMessage(0x7BB);
    c.RegisterUserMessage(0x1DB);
@@ -695,13 +644,17 @@ extern "C" int main(void)
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
 
+   Terminal t(USART3, termCmds);
+
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //backward compatibility
+   parm_Change(Param::PARAM_LAST);
 
-   term_Run();
+   while(1)
+      t.Run();
 
    return 0;
 }

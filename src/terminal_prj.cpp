@@ -31,13 +31,13 @@
 #include "leafbms.h"
 #include "terminalcommands.h"
 
-static void PrintVoltages(char* arg);
-static void LoadDefaults(char *arg);
-static void GetAll(char *arg);
-static void PrintSerial(char *arg);
-static void PrintErrors(char *arg);
+static void PrintVoltages(Terminal* term, char* arg);
+static void LoadDefaults(Terminal* term, char *arg);
+static void GetAll(Terminal* term, char *arg);
+static void PrintSerial(Terminal* term, char *arg);
+static void PrintErrors(Terminal* term, char *arg);
 
-extern "C" const TERM_CMD TermCmds[] =
+extern "C" const TERM_CMD termCmds[] =
 {
   { "set", TerminalCommands::ParamSet },
   { "get", TerminalCommands::ParamGet },
@@ -56,32 +56,31 @@ extern "C" const TERM_CMD TermCmds[] =
   { NULL, NULL }
 };
 
-static void PrintVoltages(char* arg)
+static void PrintVoltages(Terminal* term, char* arg)
 {
+   term = term;
    arg = arg;
 
    for (int i = 0; i < LeafBMS::NUMCELLS; i++)
    {
-      printf("%d: %d\r\n", i, LeafBMS::GetCellVoltage(i));
-   }
-   for (int i = 0; i < LeafBMS::NUMCELLS; i++)
-   {
-      printf("Shunt %d: %d\r\n", i, LeafBMS::GetCellStatus(i));
+      printf("%d: %d, Shunt Flag: %d\r\n", i, LeafBMS::GetCellVoltage(i), LeafBMS::GetCellStatus(i));
    }
 }
 
 
-static void LoadDefaults(char *arg)
+static void LoadDefaults(Terminal* term, char *arg)
 {
+   term = term;
    arg = arg;
    Param::LoadDefaults();
    printf("Defaults loaded\r\n");
 }
 
-static void GetAll(char *arg)
+static void GetAll(Terminal* term, char *arg)
 {
    const Param::Attributes *pAtr;
 
+   term = term;
    arg = arg;
 
    for (uint32_t  idx = 0; idx < Param::PARAM_LAST; idx++)
@@ -91,14 +90,16 @@ static void GetAll(char *arg)
    }
 }
 
-static void PrintErrors(char *arg)
+static void PrintErrors(Terminal* term, char *arg)
 {
+   term = term;
    arg = arg;
    ErrorMessage::PrintAllErrors();
 }
 
-static void PrintSerial(char *arg)
+static void PrintSerial(Terminal* term, char *arg)
 {
+   term = term;
    arg = arg;
    printf("%X%X%X\r\n", DESIG_UNIQUE_ID2, DESIG_UNIQUE_ID1, DESIG_UNIQUE_ID0);
 }

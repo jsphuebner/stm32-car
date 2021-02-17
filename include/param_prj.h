@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.10.R
+#define VER 1.11.R
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 103
+//Next param id (increase when adding new parameter!): 104
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -42,10 +42,7 @@
     PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "dig",     0,      10000,  900,    90  ) \
     PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "dig",     0,      10000,  500,    91  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcthresh,   "V",       0,      500,    380,    92  ) \
-    PARAM_ENTRY(CAT_CONTACT,  udchyst,     "V",       0,      500,    360,    93  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
-    PARAM_ENTRY(CAT_CONTACT,  ucellthresh, "mV",      3000,   4200,   4000,   96  ) \
-    PARAM_ENTRY(CAT_CONTACT,  ucellhyst,   "mV",      3000,   4200,   3900,   97  ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
@@ -75,6 +72,7 @@
     VALUE_ENTRY(dislim,       "kW",    2050 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
+    VALUE_ENTRY(discurlim,    "A",     2082 ) \
     VALUE_ENTRY(idc,          "A",     2047 ) \
     VALUE_ENTRY(idccdm,       "A",     2067 ) \
     VALUE_ENTRY(idcdc,        "A",     2081 ) \
@@ -116,7 +114,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2082
+//Next value Id: 2083
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
