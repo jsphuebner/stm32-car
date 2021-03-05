@@ -227,6 +227,7 @@ static void RunChaDeMo()
       int chargeLim = Param::GetInt(Param::chargelimit);
       chargeCur = MIN(MIN(255, chargeLim), chargeCur);
       ChaDeMo::SetChargeCurrent(chargeCur);
+      ChaDeMo::CheckSensorDeviation(Param::GetInt(Param::udcbms));
    }
 
    if (Param::GetInt(Param::opmode) == MOD_CHARGEND)
@@ -255,7 +256,6 @@ static void RunChaDeMo()
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
-      ChaDeMo::CheckSensorDeviation(Param::GetInt(Param::udcbms));
       Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
       ChaDeMo::SendMessages(can);

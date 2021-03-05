@@ -53,6 +53,8 @@ void ChaDeMo::SetEnabled(bool enabled)
    if (!chargeEnabled)
    {
       rampedCurReq = 0;
+      vtgTimeout = 0;
+      curTimeout = 0;
    }
 }
 

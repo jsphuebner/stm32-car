@@ -265,7 +265,7 @@ void LeafBMS::Send100msMessages(Can* can)
    can->Send(0x50C, canData);
 
    canData[0] = 0;
-   canData[1] = Param::GetInt(Param::tmpaux) << 24; //outside temp
+   canData[1] = 120 << 24; //outside temp, offset -40, gain 0.5. 120*0,5-40=20
    can->Send(0x54C, canData);
 
    run100ms = (run100ms + 1) & 3;
