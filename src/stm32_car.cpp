@@ -310,6 +310,7 @@ static void Ms100Task(void)
    s32fp cpuLoad = FP_FROMINT(scheduler->GetCpuLoad());
    Param::SetFlt(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
+   Param::SetInt(Param::tmpecu, AnaIn::tint.Get());
 
    LeafBMS::RequestNextFrame(can);
    LeafBMS::Send100msMessages(can);

@@ -91,6 +91,7 @@
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
     VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
+    VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
@@ -114,7 +115,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2083
+//Next value Id: 2084
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
