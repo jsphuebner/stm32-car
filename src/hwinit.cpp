@@ -75,7 +75,11 @@ void write_bootloader_pininit()
    commands.pindef[0].port = GPIOB;
    commands.pindef[0].pin = GPIO1;
    commands.pindef[0].inout = PIN_OUT;
-   commands.pindef[0].level = 1;
+   commands.pindef[0].level = 0;
+   commands.pindef[0].port = GPIOC;
+   commands.pindef[0].pin = GPIO13;
+   commands.pindef[0].inout = PIN_OUT;
+   commands.pindef[0].level = 0;
 
    crc_reset();
    uint32_t crc = crc_calculate_block(((uint32_t*)&commands), PINDEF_NUMWORDS);
@@ -195,5 +199,34 @@ void tim_setup()
 
    /** setup gpio */
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO7 | GPIO8 | GPIO9);
+
+   /* Timer 1 for AVAS */
+   timer_set_alignment(PWM_TIMER, TIM_CR1_CMS_CENTER_1);
+   timer_enable_preload(PWM_TIMER);
+
+   timer_enable_oc_preload(PWM_TIMER, TIM_OC3);
+   timer_set_oc_mode(PWM_TIMER, TIM_OC3, TIM_OCM_PWM1);
+   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC3);
+   timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC3);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC3N);
+
+   timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
+   timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3N);
+   timer_set_prescaler(PWM_TIMER, 10);
+
+   /* PWM frequency */
+   timer_set_period(PWM_TIMER, 40000);
+   timer_set_repetition_counter(PWM_TIMER, 1);
+
+   timer_generate_event(PWM_TIMER, TIM_EGR_UG);
+
+   timer_enable_counter(PWM_TIMER);
+   timer_enable_break_main_output(PWM_TIMER);
+
+
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO8 | GPIO9 | GPIO10);
+   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15);
+
 }
 

@@ -187,21 +187,16 @@ static void RunChaDeMo()
 {
    static uint32_t connectorLockTime = 0;
 
-   if (!chargeMode && rtc_get_counter_val() > 100) //100*10ms = 1s
+   if (DigIo::charge_in.Get())
    {
-      //If 2s after boot we don't see voltage on the inverter it means
-      //the inverter is off and we are in charge mode
-      if (Param::GetInt(Param::udcinv) < 10)
-      {
-         chargeMode = true;
-         Param::SetInt(Param::opmode, MOD_CHARGESTART);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
-      }
+      chargeMode = true;
+      Param::SetInt(Param::opmode, MOD_CHARGESTART);
+      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
+      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
    }
 
    /* 1s after entering charge mode, enable charge permission */
-   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && rtc_get_counter_val() > 200)
+   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && rtc_get_counter_val() > 200 && DigIo::dcsw_out.Get())
    {
       ChaDeMo::SetEnabled(true);
       //Use fuel gauge line to control charge enable signal
@@ -328,7 +323,7 @@ static void Ms100Task(void)
    {
       if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
          can->SendAll();
-      SendVAG100msMessage();
+      //SendVAG100msMessage();
       SetFuelGauge();
    }
 }
@@ -350,32 +345,9 @@ static void GetDigInputs()
    if (Param::GetBool(Param::din_bms))
       canio |= CAN_IO_BMS;
 
+   Param::SetInt(Param::din_charge, DigIo::charge_in.Get());
+
    Param::SetInt(Param::canio, canio);
-}
-
-static void TractionControl(s32fp& throtmin, s32fp& throtmax)
-{
-   if (!Param::GetBool(Param::espoff))
-   {
-      s32fp frontAxleSpeed = (Param::Get(Param::wheelfl) + Param::Get(Param::wheelfr)) / 2;
-      s32fp rearAxleSpeed = (Param::Get(Param::wheelrl) + Param::Get(Param::wheelrr)) / 2;
-      s32fp diff = frontAxleSpeed - rearAxleSpeed;
-      s32fp kp = Param::Get(Param::tractionkp);
-
-      //Here we assume front wheel drive
-      if (diff < 0)
-      {
-         //Front axle turns slower than rear axle -> too much breaking force
-         s32fp speedErr = Param::Get(Param::allowedlag) - diff;
-         throtmin = -FP_FROMINT(100) + FP_MUL(kp, speedErr);
-      }
-      else
-      {
-         //Front axle turns faster than rear axle -> wheel spin
-         s32fp speedErr = Param::Get(Param::allowedspin) - diff;
-         throtmax = FP_FROMINT(100) + FP_MUL(kp, speedErr);
-      }
-   }
 }
 
 static void ProcessThrottle()
@@ -388,34 +360,18 @@ static void ProcessThrottle()
    brakePressure = MIN(255, brakePressure);
 
    /* hard coded throttle redundance */
-   if (pot2 > 50)
+   /*if (pot2 > 50)
    {
       pot1 = MIN(pot1, pot2 * 2);
-   }
+   }*/
 
    Param::SetInt(Param::pot, pot1);
    Param::SetInt(Param::pot2, pot2);
    Param::SetInt(Param::potbrake, brakePressure);
 }
 
-static void LimitThrottle()
-{
-   s32fp throtmin = -FP_FROMINT(100), throtmax = FP_FROMINT(100);
-
-   TractionControl(throtmin, throtmax);
-
-   throtmin = MIN(0, throtmin);
-   throtmin = MAX(-FP_FROMINT(100), throtmin);
-   throtmax = MIN(FP_FROMINT(100), throtmax);
-   throtmax = MAX(0, throtmax);
-
-   Param::SetFlt(Param::calcthrotmax, throtmax);
-   Param::SetFlt(Param::calcthrotmin, throtmin);
-}
-
 static void Ms10Task(void)
 {
-   const uint8_t seq2[] = { 0x10, 0x68, 0x94, 0xC0 };
    static int seq1Ctr = 0;
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
@@ -428,12 +384,10 @@ static void Ms10Task(void)
    int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
    int opmode = Param::GetInt(Param::opmode);
-   int cruiselight = Param::GetInt(Param::cruiselight);
-   int errlights = Param::GetInt(Param::errlights);
    s32fp tmpm = Param::Get(Param::tmpm);
-   s32fp udcinv = Param::Get(Param::udcinv);
    s32fp idc = Param::Get(Param::idc);
    s32fp udcbms = Param::Get(Param::udcbms);
+   s32fp udccdm = Param::Get(Param::udccdm);
    s32fp power = FP_MUL(idc, udcbms) / 1000;
    s32fp dcdcVoltage = 0;
    int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
@@ -477,11 +431,11 @@ static void Ms10Task(void)
    {
       if (vacuum > vacuumthresh)
       {
-         DigIo::vacuum_out.Clear();
+         DigIo::vacuum_out.Set();
       }
       else if (vacuum < vacuumhyst)
       {
-         DigIo::vacuum_out.Set();
+         DigIo::vacuum_out.Clear();
       }
    }
 
@@ -511,23 +465,16 @@ static void Ms10Task(void)
       Param::SetFlt(Param::heatcur, 0);
    }
 
-   //If inverter voltage drops 50V below BMS voltage
-   //Drop DC contactor and put inverter in neutral
-   //This happens if charger is plugged in while car is still in drive
-   if (udcinv < (udcbms - FP_FROMINT(50)))
-   {
-      Param::SetInt(Param::din_forward, 0);
-      DigIo::dcsw_out.Clear();
-   }
-   else if (opmode == MOD_OFF)
+   if (opmode == MOD_OFF)
    {
       //Do not drop DC contactor in off mode because pre-charge
       //is always on and we will burn the precharge resistor
       //because the DC/DC converter still draws power
       Param::SetInt(Param::speedmod, 0);
       dcdcDelay = 100;
+      timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
    }
-   else
+   else if (opmode == MOD_RUN)
    {
       DigIo::dcsw_out.Set();
       Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
@@ -541,6 +488,12 @@ static void Ms10Task(void)
       {
          dcdcVoltage = Param::Get(Param::udcdc);
       }
+      timer_set_oc_value(PWM_TIMER, TIM_OC3, Param::GetInt(Param::avasdc));
+      timer_set_period(PWM_TIMER, Param::GetInt(Param::avasfrq));
+   } //In charge mode charger will report DC bus voltage
+   else if (udcbms > 0 && udccdm >= (udcbms - FP_FROMFLT(10)))
+   {
+      DigIo::dcsw_out.Set();
    }
 
    s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
@@ -554,25 +507,13 @@ static void Ms10Task(void)
 
    GetDigInputs();
    ProcessThrottle();
-   LimitThrottle();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
-   if (!chargeMode)
-   {
-      uint32_t canData[2];
 
-      //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
-      uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
-      canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
-      canData[1] = 0x1A | cruiselight << 18 | check << 24;
-
-      can->Send(0x480, canData);
-
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
-         can->SendAll();
-   }
+   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
+      can->SendAll();
 }
 
 /** This function is called when the user changes a parameter */

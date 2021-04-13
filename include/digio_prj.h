@@ -11,7 +11,7 @@
     DIG_IO_ENTRY(fwd_in,      GPIOA, GPIO4,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(rev_in,      GPIOC, GPIO6,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(emcystop_in, GPIOC, GPIO7,  PinMode::INPUT_PD)   \
-    DIG_IO_ENTRY(bms_in,      GPIOC, GPIO8,  PinMode::INPUT_PD)   \
+    DIG_IO_ENTRY(charge_in,   GPIOC, GPIO8,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(dcsw_out,    GPIOC, GPIO13, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(prec_out,    GPIOC, GPIO11, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(vacuum_out,  GPIOB, GPIO1,  PinMode::OUTPUT)      \

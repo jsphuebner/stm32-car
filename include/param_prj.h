@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.12.R
+#define VER 1.12.R-Fenix
 
 
 /* Entries must be ordered as follows:
@@ -52,6 +52,9 @@
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
+    PARAM_ENTRY(CAT_AVAS,     avasfrq,     "Hz",      0,      65535,  40000,  104 ) \
+    PARAM_ENTRY(CAT_AVAS,     avasfac,     "",        0,      1000,   0,      105 ) \
+    PARAM_ENTRY(CAT_AVAS,     avasdc,      "%",       0,      65535,  20000,  106 ) \
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
@@ -110,12 +113,13 @@
     VALUE_ENTRY(din_forward,  ONOFF,   2027 ) \
     VALUE_ENTRY(din_reverse,  ONOFF,   2028 ) \
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
+    VALUE_ENTRY(din_charge,   ONOFF,   2084 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2084
+//Next value Id: 2085
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
@@ -137,6 +141,7 @@
 #define CAT_GAUGE    "Fuel Gauge"
 #define CAT_ESP      "ESP/ABS integration"
 #define CAT_CRUISE   "Cruise Control"
+#define CAT_AVAS     "AVAS"
 
 #define CAN_PERIOD_100MS    0
 #define CAN_PERIOD_10MS     1
