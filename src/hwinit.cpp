@@ -52,6 +52,7 @@ void clock_setup(void)
    rcc_periph_clock_enable(RCC_GPIOB);
    rcc_periph_clock_enable(RCC_GPIOC);
    rcc_periph_clock_enable(RCC_GPIOD);
+   rcc_periph_clock_enable(RCC_USART1);
    rcc_periph_clock_enable(RCC_USART3);
    rcc_periph_clock_enable(RCC_TIM1); //Main PWM
    rcc_periph_clock_enable(RCC_TIM2); //Scheduler
@@ -105,33 +106,30 @@ void write_bootloader_pininit()
 */
 void usart_setup(void)
 {
-   gpio_set_mode(TERM_USART_TXPORT, GPIO_MODE_OUTPUT_50_MHZ,
-               GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TERM_USART_TXPIN);
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ,
+               GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_USART1_TX);
 
-   usart_set_baudrate(TERM_USART, USART_BAUDRATE);
-   usart_set_databits(TERM_USART, 8);
-   usart_set_stopbits(TERM_USART, USART_STOPBITS_1);
-   usart_set_mode(TERM_USART, USART_MODE_TX_RX);
-   usart_set_parity(TERM_USART, USART_PARITY_NONE);
-   usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
-   usart_enable_rx_dma(TERM_USART);
-   usart_enable_tx_dma(TERM_USART);
+   gpio_set_mode(GPIOA, GPIO_MODE_INPUT,
+               GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_USART1_RX);
 
-   dma_channel_reset(DMA1, TERM_USART_DMATX);
-   dma_set_read_from_memory(DMA1, TERM_USART_DMATX);
-   dma_set_peripheral_address(DMA1, TERM_USART_DMATX, (uint32_t)&TERM_USART_DR);
-   dma_set_peripheral_size(DMA1, TERM_USART_DMATX, DMA_CCR_PSIZE_8BIT);
-   dma_set_memory_size(DMA1, TERM_USART_DMATX, DMA_CCR_MSIZE_8BIT);
-   dma_enable_memory_increment_mode(DMA1, TERM_USART_DMATX);
+   gpio_set(GPIOA, GPIO_USART1_RX); //pull-up
 
-   dma_channel_reset(DMA1, TERM_USART_DMARX);
-   dma_set_peripheral_address(DMA1, TERM_USART_DMARX, (uint32_t)&TERM_USART_DR);
-   dma_set_peripheral_size(DMA1, TERM_USART_DMARX, DMA_CCR_PSIZE_8BIT);
-   dma_set_memory_size(DMA1, TERM_USART_DMARX, DMA_CCR_MSIZE_8BIT);
-   dma_enable_memory_increment_mode(DMA1, TERM_USART_DMARX);
-   dma_enable_channel(DMA1, TERM_USART_DMARX);
+   usart_set_baudrate(USART1, 19200);
+   usart_set_databits(USART1, 8);
+   usart_set_stopbits(USART1, USART_STOPBITS_1);
+   usart_set_mode(USART1, USART_MODE_TX_RX);
+   usart_set_parity(USART1, USART_PARITY_NONE);
+   USART_CR2(USART1) |= USART_CR2_LINEN;
+   usart_enable_tx_dma(USART1);
 
-   usart_enable(TERM_USART);
+   dma_channel_reset(DMA1, DMA_CHANNEL4);
+   dma_set_read_from_memory(DMA1, DMA_CHANNEL4);
+   dma_set_peripheral_address(DMA1, DMA_CHANNEL4, (uint32_t)&USART1_DR);
+   dma_set_peripheral_size(DMA1, DMA_CHANNEL4, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA1, DMA_CHANNEL4, DMA_CCR_MSIZE_8BIT);
+   dma_enable_memory_increment_mode(DMA1, DMA_CHANNEL4);
+
+   usart_enable(USART1);
 }
 
 /**
@@ -208,10 +206,8 @@ void tim_setup()
    timer_set_oc_mode(PWM_TIMER, TIM_OC3, TIM_OCM_PWM1);
    timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC3);
    timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC3);
    timer_enable_oc_output(PWM_TIMER, TIM_OC3N);
 
-   timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
    timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3N);
    timer_set_prescaler(PWM_TIMER, 10);
 
@@ -224,9 +220,6 @@ void tim_setup()
    timer_enable_counter(PWM_TIMER);
    timer_enable_break_main_output(PWM_TIMER);
 
-
-   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO8 | GPIO9 | GPIO10);
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15);
-
 }
 

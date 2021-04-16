@@ -47,7 +47,8 @@
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     70,     60,     99  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatcurmax,  "A",       0,      400,    0,     100  ) \
+    PARAM_ENTRY(CAT_CONTACT,  linpid,     "",      0,     255,     40,     99  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatpowmax,  "W",       0,      400,    0,     100  ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \

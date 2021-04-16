@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/rtc.h>
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
+#include <libopencm3/stm32/dma.h>
 #include "stm32_can.h"
 #include "terminal.h"
 #include "params.h"
@@ -49,6 +50,7 @@ HWREV hwRev; //Hardware variant of board we are running on
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static Can* can;
+static uint8_t lindata[6] = { 0x55, 0xA3 };
 
 static void Ms500Task(void)
 {
@@ -449,7 +451,7 @@ static void Ms10Task(void)
       {
          s32fp heatmax = Param::Get(Param::heatmax);
          s32fp heatcur = (heatmax - tmpm) * 50;
-         s32fp heatcurmax = Param::Get(Param::heatcurmax);
+         s32fp heatcurmax = Param::Get(Param::heatpowmax);
 
          heatcur = MIN(heatcurmax, heatcur);
          Param::SetFlt(Param::heatcur, heatcur);
@@ -512,6 +514,29 @@ static void Ms10Task(void)
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
 
+   dma_disable_channel(DMA1, DMA_CHANNEL4);
+   dma_set_number_of_data(DMA1, DMA_CHANNEL4, 2);
+   dma_set_memory_address(DMA1, DMA_CHANNEL4, (uint32_t)lindata);
+   dma_clear_interrupt_flags(DMA1, DMA_CHANNEL4, DMA_TCIF);
+
+   lindata[1] = Param::GetInt(Param::linpid);
+   /*lindata[2] = Param::GetInt(Param::heatpowmax) > 0;
+   lindata[3] = Param::GetInt(Param::heatmax) - 40;
+   lindata[4] = Param::GetInt(Param::heatpowmax) / 40;
+   lindata[5] = lindata[1]; // + lindata[2] + lindata[3] + lindata[4];
+
+   for (int i = 2; i < 5; i++)
+   {
+      uint16_t tmp = lindata[5] + lindata[i];
+      if (tmp > 256) tmp -= 255;
+      lindata[5] += tmp;
+   }*/
+
+   USART1_CR1 |= USART_CR1_SBK;
+   dma_enable_channel(DMA1, DMA_CHANNEL4);
+   //usart_send_blocking(USART1, 0x55);
+   //usart_send_blocking(USART1, 0xA3); //address 35 with parity
+
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
       can->SendAll();
 }
@@ -565,6 +590,7 @@ extern "C" int main(void)
    ConfigureVariantIO();
    tim_setup();
    nvic_setup();
+   usart_setup();
    parm_load();
 
    Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
