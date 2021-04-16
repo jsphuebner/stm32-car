@@ -117,6 +117,8 @@
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
+    VALUE_ENTRY(flashsize,    "kb",    2035 ) \
+    VALUE_ENTRY(devid,        "",      2035 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
 //Next value Id: 2085

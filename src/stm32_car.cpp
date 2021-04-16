@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/rtc.h>
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
+#include <libopencm3/stm32/desig.h>
 #include "stm32_can.h"
 #include "terminal.h"
 #include "params.h"
@@ -555,6 +556,9 @@ extern "C" void tim2_isr(void)
    scheduler->Run();
 }
 
+//C++ run time requires that when using interfaces
+extern "C" void __cxa_pure_virtual() { while (1); }
+
 extern "C" int main(void)
 {
    extern const TERM_CMD termCmds[];
@@ -566,6 +570,8 @@ extern "C" int main(void)
    tim_setup();
    nvic_setup();
    parm_load();
+
+   //gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON, AFIO_MAPR_USART3_REMAP_FULL_REMAP);
 
    Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
 
@@ -586,13 +592,15 @@ extern "C" int main(void)
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
 
-   Terminal t(USART3, termCmds);
+   Terminal t(USART3, termCmds, false);
 
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //backward compatibility
+   Param::SetInt(Param::flashsize, desig_get_flash_size());
+   Param::SetInt(Param::devid, MMIO32(DBGMCU_BASE) & 0x7FF);
    parm_Change(Param::PARAM_LAST);
 
    while(1)
