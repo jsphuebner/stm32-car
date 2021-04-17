@@ -473,7 +473,7 @@ static void Ms10Task(void)
       DigIo::oil_out.Clear();
    }
 
-   if (opmode < MOD_CHARGESTART)
+   if (opmode == MOD_RUN)
    {
       if (vacuum > vacuumthresh)
       {
