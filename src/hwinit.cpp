@@ -77,10 +77,10 @@ void write_bootloader_pininit()
    commands.pindef[0].pin = GPIO1;
    commands.pindef[0].inout = PIN_OUT;
    commands.pindef[0].level = 0;
-   commands.pindef[0].port = GPIOC;
-   commands.pindef[0].pin = GPIO13;
-   commands.pindef[0].inout = PIN_OUT;
-   commands.pindef[0].level = 0;
+   commands.pindef[1].port = GPIOC;
+   commands.pindef[1].pin = GPIO13;
+   commands.pindef[1].inout = PIN_OUT;
+   commands.pindef[1].level = 0;
 
    crc_reset();
    uint32_t crc = crc_calculate_block(((uint32_t*)&commands), PINDEF_NUMWORDS);
@@ -102,7 +102,7 @@ void write_bootloader_pininit()
 }
 
 /**
-* Setup UART3 115200 8N1
+* Setup UART1 19200 8N1 for LIN communication
 */
 void usart_setup(void)
 {
@@ -110,15 +110,14 @@ void usart_setup(void)
                GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_USART1_TX);
 
    gpio_set_mode(GPIOA, GPIO_MODE_INPUT,
-               GPIO_CNF_INPUT_PULL_UPDOWN, GPIO_USART1_RX);
+               GPIO_CNF_INPUT_FLOAT, GPIO_USART1_RX);
 
-   gpio_set(GPIOA, GPIO_USART1_RX); //pull-up
-
-   usart_set_baudrate(USART1, 19200);
+   usart_set_baudrate(USART1, 9600);
    usart_set_databits(USART1, 8);
    usart_set_stopbits(USART1, USART_STOPBITS_1);
    usart_set_mode(USART1, USART_MODE_TX_RX);
    usart_set_parity(USART1, USART_PARITY_NONE);
+   usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
    USART_CR2(USART1) |= USART_CR2_LINEN;
    usart_enable_tx_dma(USART1);
 

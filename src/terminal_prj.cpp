@@ -36,6 +36,9 @@ static void LoadDefaults(Terminal* term, char *arg);
 static void GetAll(Terminal* term, char *arg);
 static void PrintSerial(Terminal* term, char *arg);
 static void PrintErrors(Terminal* term, char *arg);
+static void PrintLin(Terminal* term, char *arg);
+
+char lindata[15];
 
 extern "C" const TERM_CMD termCmds[] =
 {
@@ -53,8 +56,30 @@ extern "C" const TERM_CMD termCmds[] =
   { "all", GetAll },
   { "serial", PrintSerial },
   { "errors", PrintErrors },
+  { "lin", PrintLin },
   { NULL, NULL }
 };
+
+static void PrintLin(Terminal* term, char *arg)
+{
+   printf("%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x,%x\r\n",
+          lindata[0],
+          lindata[1],
+          lindata[2],
+          lindata[3],
+          lindata[4],
+          lindata[5],
+          lindata[6],
+          lindata[7],
+          lindata[8],
+          lindata[9],
+          lindata[10],
+          lindata[11],
+          lindata[12],
+          lindata[13],
+          lindata[14]
+          );
+}
 
 static void PrintVoltages(Terminal* term, char* arg)
 {

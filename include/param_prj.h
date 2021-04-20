@@ -47,7 +47,7 @@
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     70,     60,     99  ) \
-    PARAM_ENTRY(CAT_CONTACT,  linpid,     "",      0,     255,     40,     99  ) \
+    /*PARAM_ENTRY(CAT_CONTACT,  linpid,     "",      0,     63,     0x21,     99  )*/ \
     PARAM_ENTRY(CAT_CONTACT,  heatpowmax,  "W",       0,      400,    0,     100  ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
@@ -72,9 +72,11 @@
     VALUE_ENTRY(udcinv,       "V",     2001 ) \
     VALUE_ENTRY(udcbms,       "V",     2048 ) \
     VALUE_ENTRY(udccdm,       "V",     2068 ) \
+    VALUE_ENTRY(udcheater,    "V",     2068 ) \
     VALUE_ENTRY(chglim,       "kW",    2049 ) \
     VALUE_ENTRY(dislim,       "kW",    2050 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
+    VALUE_ENTRY(powerheater,  "kW",    2051 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(discurlim,    "A",     2082 ) \
     VALUE_ENTRY(idc,          "A",     2047 ) \
@@ -97,6 +99,7 @@
     VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
     VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
+    VALUE_ENTRY(tmpheater,    "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
@@ -119,6 +122,12 @@
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
+    VALUE_ENTRY(linbytes,      "%",     2035 ) \
+    VALUE_ENTRY(linpid,      "%",     2035 ) \
+    VALUE_ENTRY(lincont1,      "%",     2035 ) \
+    VALUE_ENTRY(lincont2,      "%",     2035 ) \
+    VALUE_ENTRY(lincont3,      "%",     2035 ) \
+    VALUE_ENTRY(lincont4,      "%",     2035 ) \
 
 //Next value Id: 2085
 

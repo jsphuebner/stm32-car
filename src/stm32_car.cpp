@@ -50,7 +50,6 @@ HWREV hwRev; //Hardware variant of board we are running on
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static Can* can;
-static uint8_t lindata[6] = { 0x55, 0xA3 };
 
 static void Ms500Task(void)
 {
@@ -87,6 +86,54 @@ static void Ms500Task(void)
 
    regenLevelLast = Param::GetInt(Param::regenlevel);
    modeLast = mode;
+}
+
+static void SendLin()
+{
+   static uint8_t lindata[7] = { 0x55 };
+   static bool read = true;
+
+   dma_disable_channel(DMA1, DMA_CHANNEL4);
+   dma_set_memory_address(DMA1, DMA_CHANNEL4, (uint32_t)lindata);
+
+   if (read)
+   {
+      dma_set_number_of_data(DMA1, DMA_CHANNEL4, 2);
+      lindata[1] = 0x97;
+   }
+   else
+   {
+      const int lastByte = Param::GetInt(Param::linbytes) + 2;
+      int pid = Param::GetInt(Param::linpid);
+      dma_set_number_of_data(DMA1, DMA_CHANNEL4, Param::GetInt(Param::linbytes) + 3);
+      bool p1 = !(((pid & 0x2) > 0) ^ ((pid & 0x8) > 0) ^ ((pid & 0x10) > 0) ^ ((pid & 0x20) > 0));
+      bool p0 = ((pid & 0x1) > 0) ^ ((pid & 0x2) > 0) ^ ((pid & 0x4) > 0) ^ ((pid & 0x10) > 0);
+      lindata[1] = pid | p1 << 7 | p0 << 6;
+      lindata[2] = Param::GetInt(Param::lincont1);
+      lindata[3] = Param::GetInt(Param::lincont2);
+      lindata[4] = Param::GetInt(Param::lincont3);
+      lindata[5] = Param::GetInt(Param::lincont4);
+      //lindata[2] = Param::GetInt(Param::heatpowmax) > 0;
+      //lindata[3] = Param::GetInt(Param::heatmax) + 40;
+      //lindata[3] = Param::GetInt(Param::heatpowmax) / 40;
+      //lindata[5] = 0;
+      lindata[lastByte] = lindata[1]; // + lindata[2] + lindata[3] + lindata[4];
+
+      for (int i = 2; i < lastByte; i++)
+      {
+         uint16_t tmp = (uint16_t)lindata[lastByte] + (uint16_t)lindata[i];
+         if (tmp > 256) tmp -= 255;
+         lindata[lastByte] = tmp;
+      }
+      lindata[lastByte] ^= 0xff;
+   }
+
+   dma_clear_interrupt_flags(DMA1, DMA_CHANNEL4, DMA_TCIF);
+
+   USART1_CR1 |= USART_CR1_SBK;
+   dma_enable_channel(DMA1, DMA_CHANNEL4);
+
+   read = !read;
 }
 
 static void ProcessCruiseControlButtons()
@@ -264,24 +311,6 @@ static void RunChaDeMo()
    }
 }
 
-static void SendVAG100msMessage()
-{
-   static int seqCtr = 0;
-   static uint8_t ctr = 0;
-
-   const uint8_t seq1[] = { 0x0f, 0x28, 0x7f, 0x28 };
-   const uint8_t seq2[] = { 0x1e, 0x10, 0x00, 0x10 };
-   const uint8_t seq3[] = { 0x70, 0x56, 0xf0, 0x56 };
-   const uint8_t seq4[] = { 0x0c, 0x48, 0xa7, 0x48 };
-   const uint8_t seq5[] = { 0x46, 0x90, 0x28, 0x90 };
-
-   uint8_t canData[8] = { (uint8_t)(0x80 | ctr), 0, 0, seq1[seqCtr], seq2[seqCtr], seq3[seqCtr], seq4[seqCtr], seq5[seqCtr] };
-
-   can->Send(0x580, (uint32_t*)canData);
-   seqCtr = (seqCtr + 1) & 0x3;
-   ctr = (ctr + 1) & 0xF;
-}
-
 static void SetFuelGauge()
 {
    int dcoffset = Param::GetInt(Param::gaugeoffset);
@@ -320,6 +349,7 @@ static void Ms100Task(void)
 
    ProcessCruiseControlButtons();
    RunChaDeMo();
+   //SendLin();
 
    if (!chargeMode && rtc_get_counter_val() > 100)
    {
@@ -509,33 +539,11 @@ static void Ms10Task(void)
 
    GetDigInputs();
    ProcessThrottle();
+   SendLin();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
-
-   dma_disable_channel(DMA1, DMA_CHANNEL4);
-   dma_set_number_of_data(DMA1, DMA_CHANNEL4, 2);
-   dma_set_memory_address(DMA1, DMA_CHANNEL4, (uint32_t)lindata);
-   dma_clear_interrupt_flags(DMA1, DMA_CHANNEL4, DMA_TCIF);
-
-   lindata[1] = Param::GetInt(Param::linpid);
-   /*lindata[2] = Param::GetInt(Param::heatpowmax) > 0;
-   lindata[3] = Param::GetInt(Param::heatmax) - 40;
-   lindata[4] = Param::GetInt(Param::heatpowmax) / 40;
-   lindata[5] = lindata[1]; // + lindata[2] + lindata[3] + lindata[4];
-
-   for (int i = 2; i < 5; i++)
-   {
-      uint16_t tmp = lindata[5] + lindata[i];
-      if (tmp > 256) tmp -= 255;
-      lindata[5] += tmp;
-   }*/
-
-   USART1_CR1 |= USART_CR1_SBK;
-   dma_enable_channel(DMA1, DMA_CHANNEL4);
-   //usart_send_blocking(USART1, 0x55);
-   //usart_send_blocking(USART1, 0xA3); //address 35 with parity
 
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
       can->SendAll();
@@ -614,15 +622,125 @@ extern "C" int main(void)
 
    Terminal t(USART3, termCmds);
 
-   s.AddTask(Ms10Task, 10);
+   s.AddTask(Ms10Task, 20);
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //backward compatibility
    parm_Change(Param::PARAM_LAST);
 
+   int linByte = 0;
+   int lsb = 0;
+   int pid = 0;
+   extern char lindata[15];
+
+
+   Param::SetInt(Param::linbytes, 2);
+
    while(1)
+   {
       t.Run();
+
+      if (usart_get_flag(USART1, USART_SR_LBD))
+      {
+         linByte = 0;
+         USART_SR(USART1) &= ~USART_SR_LBD;
+      }
+      else if (usart_get_flag(USART1, USART_SR_RXNE))
+      {
+         int data = usart_recv(USART1);
+         lindata[linByte] = data;
+         if (linByte == 1)
+            pid = data;
+
+         if (pid == 0x97)
+         {
+            if (linByte == 2)
+            {
+               if (data == 0)
+               {
+                  uint8_t lincont[4];
+                  uint8_t linpid = Param::GetInt(Param::linpid);
+                  uint8_t linbytes = Param::GetInt(Param::linbytes);
+                  lincont[0] = Param::GetInt(Param::lincont1);
+                  lincont[1] = Param::GetInt(Param::lincont2);
+                  lincont[2] = Param::GetInt(Param::lincont3);
+                  lincont[3] = Param::GetInt(Param::lincont4);
+
+                  if (lincont[3] == 0x80 && linbytes == 4)
+                  {
+                     lincont[3] = 0;
+                     if (linbytes == 4)
+                     {
+                        linpid++;
+                     }
+                  }
+
+                  if (lincont[2] == 0x80 && linbytes >= 3)
+                  {
+                     lincont[3] = lincont[3] == 0 ? 1 : lincont[3] << 1;
+
+                     if (linbytes == 3)
+                     {
+                        linpid++;
+                     }
+                  }
+
+                  if (lincont[1] == 0x80 && linbytes >= 2)
+                  {
+                     lincont[2] = lincont[2] == 0 ? 1 : lincont[2] << 1;
+
+                     if (linbytes == 2)
+                     {
+                        linpid++;
+                     }
+                  }
+
+
+                  if (lincont[0] == 0x80)
+                     lincont[1] = lincont[1] == 0 ? 1 : lincont[1] << 1;
+
+                  lincont[0] = lincont[0] == 0 ? 1 : lincont[0] << 1;
+
+
+                  if (linpid == 22)
+                  {
+                     linpid = 24;
+                  }
+
+                  if (linpid == 64)
+                  {
+                     linpid = 0;
+                     linbytes++;
+                  }
+
+                  Param::SetInt(Param::lincont1, lincont[0]);
+                  Param::SetInt(Param::lincont2, lincont[1]);
+                  Param::SetInt(Param::lincont3, lincont[2]);
+                  Param::SetInt(Param::lincont4, lincont[3]);
+                  Param::SetInt(Param::linpid, linpid);
+                  Param::SetInt(Param::linbytes, linbytes);
+               }
+            }
+         }
+
+         if (pid == 0xd6)
+         {
+            if (linByte == 3)
+               Param::SetInt(Param::tmpheater, data - 40);
+            else if (linByte == 6)
+               lsb = data;
+            else if (linByte == 7)
+               Param::SetInt(Param::udcheater, lsb | (data << 8));
+            else if (linByte == 8)
+               Param::SetInt(Param::powerheater, data * 20);
+            else if (linByte == 9)
+               Param::SetInt(Param::uaux, data);
+         }
+         linByte++;
+      }
+   }
+
 
    return 0;
 }
