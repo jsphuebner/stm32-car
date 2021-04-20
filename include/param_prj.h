@@ -46,9 +46,8 @@
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     70,     60,     99  ) \
-    /*PARAM_ENTRY(CAT_CONTACT,  linpid,     "",      0,     63,     0x21,     99  )*/ \
-    PARAM_ENTRY(CAT_CONTACT,  heatpowmax,  "W",       0,      400,    0,     100  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     90,     85,     99  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatpowmax,  "W",       0,      7000,   0,     100  ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
@@ -122,12 +121,6 @@
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
-    VALUE_ENTRY(linbytes,      "%",     2035 ) \
-    VALUE_ENTRY(linpid,      "%",     2035 ) \
-    VALUE_ENTRY(lincont1,      "%",     2035 ) \
-    VALUE_ENTRY(lincont2,      "%",     2035 ) \
-    VALUE_ENTRY(lincont3,      "%",     2035 ) \
-    VALUE_ENTRY(lincont4,      "%",     2035 ) \
 
 //Next value Id: 2085
 

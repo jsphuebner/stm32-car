@@ -38,7 +38,7 @@ static void PrintSerial(Terminal* term, char *arg);
 static void PrintErrors(Terminal* term, char *arg);
 static void PrintLin(Terminal* term, char *arg);
 
-char lindata[15];
+uint8_t lindata[15];
 
 extern "C" const TERM_CMD termCmds[] =
 {

@@ -25,6 +25,8 @@
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
 #include <libopencm3/stm32/dma.h>
+#include <libopencm3/stm32/desig.h>
+#include <libopencm3/stm32/flash.h>
 #include "stm32_can.h"
 #include "terminal.h"
 #include "params.h"
@@ -88,6 +90,19 @@ static void Ms500Task(void)
    modeLast = mode;
 }
 
+static uint8_t LinChecksum(uint8_t pid, uint8_t* data, int len)
+{
+   uint8_t checksum = pid;
+
+   for (int i = 0; i < len; i++)
+   {
+      uint16_t tmp = (uint16_t)checksum + (uint16_t)data[i];
+      if (tmp > 256) tmp -= 255;
+      checksum = tmp;
+   }
+   return checksum ^ 0xff;
+}
+
 static void SendLin()
 {
    static uint8_t lindata[7] = { 0x55 };
@@ -99,33 +114,20 @@ static void SendLin()
    if (read)
    {
       dma_set_number_of_data(DMA1, DMA_CHANNEL4, 2);
-      lindata[1] = 0x97;
+      lindata[1] = 0xd6;
    }
    else
    {
-      const int lastByte = Param::GetInt(Param::linbytes) + 2;
-      int pid = Param::GetInt(Param::linpid);
-      dma_set_number_of_data(DMA1, DMA_CHANNEL4, Param::GetInt(Param::linbytes) + 3);
+      int pid = 21;
+      dma_set_number_of_data(DMA1, DMA_CHANNEL4, 7);
       bool p1 = !(((pid & 0x2) > 0) ^ ((pid & 0x8) > 0) ^ ((pid & 0x10) > 0) ^ ((pid & 0x20) > 0));
       bool p0 = ((pid & 0x1) > 0) ^ ((pid & 0x2) > 0) ^ ((pid & 0x4) > 0) ^ ((pid & 0x10) > 0);
       lindata[1] = pid | p1 << 7 | p0 << 6;
-      lindata[2] = Param::GetInt(Param::lincont1);
-      lindata[3] = Param::GetInt(Param::lincont2);
-      lindata[4] = Param::GetInt(Param::lincont3);
-      lindata[5] = Param::GetInt(Param::lincont4);
-      //lindata[2] = Param::GetInt(Param::heatpowmax) > 0;
-      //lindata[3] = Param::GetInt(Param::heatmax) + 40;
-      //lindata[3] = Param::GetInt(Param::heatpowmax) / 40;
-      //lindata[5] = 0;
-      lindata[lastByte] = lindata[1]; // + lindata[2] + lindata[3] + lindata[4];
-
-      for (int i = 2; i < lastByte; i++)
-      {
-         uint16_t tmp = (uint16_t)lindata[lastByte] + (uint16_t)lindata[i];
-         if (tmp > 256) tmp -= 255;
-         lindata[lastByte] = tmp;
-      }
-      lindata[lastByte] ^= 0xff;
+      lindata[2] = Param::GetInt(Param::heatpowmax) / 40;
+      lindata[3] = Param::GetInt(Param::heatmax) + 40;
+      lindata[4] = 0;
+      lindata[5] = Param::GetInt(Param::heatpowmax) > 0 ? 8 : 0;
+      lindata[6] = LinChecksum(lindata[1], &lindata[2], 4);
    }
 
    dma_clear_interrupt_flags(DMA1, DMA_CHANNEL4, DMA_TCIF);
@@ -594,7 +596,7 @@ extern "C" int main(void)
 
    clock_setup();
    rtc_setup();
-   write_bootloader_pininit();
+   //write_bootloader_pininit();
    ConfigureVariantIO();
    tim_setup();
    nvic_setup();
@@ -630,12 +632,7 @@ extern "C" int main(void)
    parm_Change(Param::PARAM_LAST);
 
    int linByte = 0;
-   int lsb = 0;
-   int pid = 0;
-   extern char lindata[15];
-
-
-   Param::SetInt(Param::linbytes, 2);
+   extern uint8_t lindata[15];
 
    while(1)
    {
@@ -648,94 +645,18 @@ extern "C" int main(void)
       }
       else if (usart_get_flag(USART1, USART_SR_RXNE))
       {
-         int data = usart_recv(USART1);
-         lindata[linByte] = data;
-         if (linByte == 1)
-            pid = data;
+         lindata[linByte] = usart_recv(USART1);
 
-         if (pid == 0x97)
+         if (lindata[1] == 0xd6 && linByte == 10)
          {
-            if (linByte == 2)
+            uint8_t checksum = LinChecksum(lindata[1], &lindata[2], 8);
+
+            if (checksum == lindata[10])
             {
-               if (data == 0)
-               {
-                  uint8_t lincont[4];
-                  uint8_t linpid = Param::GetInt(Param::linpid);
-                  uint8_t linbytes = Param::GetInt(Param::linbytes);
-                  lincont[0] = Param::GetInt(Param::lincont1);
-                  lincont[1] = Param::GetInt(Param::lincont2);
-                  lincont[2] = Param::GetInt(Param::lincont3);
-                  lincont[3] = Param::GetInt(Param::lincont4);
-
-                  if (lincont[3] == 0x80 && linbytes == 4)
-                  {
-                     lincont[3] = 0;
-                     if (linbytes == 4)
-                     {
-                        linpid++;
-                     }
-                  }
-
-                  if (lincont[2] == 0x80 && linbytes >= 3)
-                  {
-                     lincont[3] = lincont[3] == 0 ? 1 : lincont[3] << 1;
-
-                     if (linbytes == 3)
-                     {
-                        linpid++;
-                     }
-                  }
-
-                  if (lincont[1] == 0x80 && linbytes >= 2)
-                  {
-                     lincont[2] = lincont[2] == 0 ? 1 : lincont[2] << 1;
-
-                     if (linbytes == 2)
-                     {
-                        linpid++;
-                     }
-                  }
-
-
-                  if (lincont[0] == 0x80)
-                     lincont[1] = lincont[1] == 0 ? 1 : lincont[1] << 1;
-
-                  lincont[0] = lincont[0] == 0 ? 1 : lincont[0] << 1;
-
-
-                  if (linpid == 22)
-                  {
-                     linpid = 24;
-                  }
-
-                  if (linpid == 64)
-                  {
-                     linpid = 0;
-                     linbytes++;
-                  }
-
-                  Param::SetInt(Param::lincont1, lincont[0]);
-                  Param::SetInt(Param::lincont2, lincont[1]);
-                  Param::SetInt(Param::lincont3, lincont[2]);
-                  Param::SetInt(Param::lincont4, lincont[3]);
-                  Param::SetInt(Param::linpid, linpid);
-                  Param::SetInt(Param::linbytes, linbytes);
-               }
+               Param::SetInt(Param::tmpheater, lindata[3] - 40);
+               Param::SetInt(Param::udcheater, lindata[6] | ((lindata[7] & 3) << 8));
+               Param::SetFlt(Param::powerheater, FP_FROMINT(((lindata[7] >> 2) | (lindata[8] << 8)) * 20) / 1000);
             }
-         }
-
-         if (pid == 0xd6)
-         {
-            if (linByte == 3)
-               Param::SetInt(Param::tmpheater, data - 40);
-            else if (linByte == 6)
-               lsb = data;
-            else if (linByte == 7)
-               Param::SetInt(Param::udcheater, lsb | (data << 8));
-            else if (linByte == 8)
-               Param::SetInt(Param::powerheater, data * 20);
-            else if (linByte == 9)
-               Param::SetInt(Param::uaux, data);
          }
          linByte++;
       }
