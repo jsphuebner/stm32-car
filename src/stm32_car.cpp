@@ -571,7 +571,7 @@ extern "C" int main(void)
    nvic_setup();
    parm_load();
 
-   //gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON, AFIO_MAPR_USART3_REMAP_FULL_REMAP);
+   gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON, AFIO_MAPR_USART3_REMAP_FULL_REMAP);
 
    Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
 
@@ -592,7 +592,7 @@ extern "C" int main(void)
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
 
-   Terminal t(USART3, termCmds, false);
+   Terminal t(USART3, termCmds, true);
 
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);

@@ -40,7 +40,7 @@
 */
 void clock_setup(void)
 {
-   rcc_clock_setup_in_hse_8mhz_out_72mhz();
+   rcc_clock_setup_in_hse_25mhz_out_72mhz();
 
    //The reset value for PRIGROUP (=0) is not actually a defined
    //value. Explicitly set 16 preemtion priorities
