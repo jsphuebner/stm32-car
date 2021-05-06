@@ -33,6 +33,9 @@
 #define TERM_BUFSIZE       128
 //Size of parameter block in flash
 #define PARAM_BLKSIZE 1024
+#define PARAM_BLKNUM  1   //last block of 1k
+#define CAN_BLKSIZE   1024
+#define CAN_BLKNUM    2   //second to last block of 1k
 
 
 typedef enum

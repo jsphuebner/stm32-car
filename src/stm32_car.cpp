@@ -22,6 +22,7 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/dac.h>
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
 #include <libopencm3/stm32/desig.h>
@@ -569,6 +570,7 @@ extern "C" int main(void)
    ConfigureVariantIO();
    tim_setup();
    nvic_setup();
+   dac_setup();
    parm_load();
 
    gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON, AFIO_MAPR_USART3_REMAP_FULL_REMAP);

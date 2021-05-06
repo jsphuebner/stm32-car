@@ -25,6 +25,7 @@
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/adc.h>
+#include <libopencm3/stm32/dac.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/rtc.h>
@@ -34,13 +35,14 @@
 #include "my_string.h"
 #include "hwdefs.h"
 #include "hwinit.h"
+#include "sine_core.h"
 
 /**
 * Start clocks of all needed peripherals
 */
 void clock_setup(void)
 {
-   rcc_clock_setup_in_hse_25mhz_out_72mhz();
+   rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE25_72MHZ]);
 
    //The reset value for PRIGROUP (=0) is not actually a defined
    //value. Explicitly set 16 preemtion priorities
@@ -55,11 +57,49 @@ void clock_setup(void)
    rcc_periph_clock_enable(RCC_TIM2); //Scheduler
    rcc_periph_clock_enable(RCC_TIM3); //Rotor Encoder
    rcc_periph_clock_enable(RCC_TIM4); //Overcurrent / AUX PWM
+   rcc_periph_clock_enable(RCC_TIM5); //DAC timing
    rcc_periph_clock_enable(RCC_DMA1);  //ADC, Encoder and UART receive
+   rcc_periph_clock_enable(RCC_DMA2);  //DAC
    rcc_periph_clock_enable(RCC_ADC1);
    rcc_periph_clock_enable(RCC_CRC);
    rcc_periph_clock_enable(RCC_AFIO); //CAN
    rcc_periph_clock_enable(RCC_CAN1); //CAN
+   rcc_periph_clock_enable(RCC_DAC);
+}
+
+void dac_setup()
+{
+   static uint8_t dacdata[256];
+
+   dac_enable(DAC1, DAC_CHANNEL1);
+   dac_set_trigger_source(DAC1, DAC_CR_TSEL1_T5);
+   dac_trigger_enable(DAC1, DAC_CHANNEL1);
+   dac_dma_enable(DAC1, DAC_CHANNEL1);
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO5 | GPIO0);
+
+   timer_set_prescaler(TIM5, 0);
+   timer_set_period(TIM5, 63); //Wrap at 1.125 MHz
+   //timer_one_shot_mode(TIM5);
+   timer_direction_up(TIM5);
+   timer_enable_update_event(TIM5);
+   timer_set_master_mode(TIM5, TIM_CR2_MMS_UPDATE);
+   timer_generate_event(TIM5, TIM_EGR_UG);
+   timer_enable_counter(TIM5);
+
+   for (int i = 0; i < sizeof(dacdata); i++)
+      dacdata[i] = SineCore::Sine(i * 256) / 270 + 128;
+
+
+   dma_channel_reset(DMA2, DMA_CHANNEL3);
+   dma_set_read_from_memory(DMA2, DMA_CHANNEL3);
+   dma_set_memory_address(DMA2, DMA_CHANNEL3, (uint32_t)dacdata);
+   dma_set_peripheral_address(DMA2, DMA_CHANNEL3, (uint32_t)&DAC_DHR8R1(DAC1));
+   dma_set_peripheral_size(DMA2, DMA_CHANNEL3, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA2, DMA_CHANNEL3, DMA_CCR_MSIZE_8BIT);
+   dma_enable_circular_mode(DMA2, DMA_CHANNEL3);
+   dma_set_number_of_data(DMA2, DMA_CHANNEL3, sizeof(dacdata));
+   dma_enable_memory_increment_mode(DMA2, DMA_CHANNEL3);
+   dma_enable_channel(DMA2, DMA_CHANNEL3);
 }
 
 void write_bootloader_pininit()
