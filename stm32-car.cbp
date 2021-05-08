@@ -23,7 +23,6 @@
 				<Compiler>
 					<Add directory="include/project" />
 					<Add directory="include" />
-					<Add directory="libopeninv/include" />
 				</Compiler>
 				<MakeCommands>
 					<Build command="make" />
@@ -42,7 +41,6 @@
 				<Compiler>
 					<Add directory="include/project" />
 					<Add directory="include" />
-					<Add directory="libopeninv/include" />
 				</Compiler>
 			</Target>
 		</Build>
@@ -61,22 +59,20 @@
 		<Unit filename="libopeninv/include/anain.h" />
 		<Unit filename="libopeninv/include/digio.h" />
 		<Unit filename="libopeninv/include/errormessage.h" />
-		<Unit filename="libopeninv/include/linbus.h" />
 		<Unit filename="libopeninv/include/my_fp.h" />
 		<Unit filename="libopeninv/include/my_math.h" />
 		<Unit filename="libopeninv/include/my_string.h" />
 		<Unit filename="libopeninv/include/param_save.h" />
 		<Unit filename="libopeninv/include/params.h" />
 		<Unit filename="libopeninv/include/printf.h" />
+		<Unit filename="libopeninv/include/sine_core.h" />
 		<Unit filename="libopeninv/include/stm32_can.h" />
-		<Unit filename="libopeninv/include/stm32_loader.h" />
 		<Unit filename="libopeninv/include/stm32scheduler.h" />
 		<Unit filename="libopeninv/include/terminal.h" />
 		<Unit filename="libopeninv/include/terminalcommands.h" />
 		<Unit filename="libopeninv/src/anain.cpp" />
 		<Unit filename="libopeninv/src/digio.cpp" />
 		<Unit filename="libopeninv/src/errormessage.cpp" />
-		<Unit filename="libopeninv/src/linbus.cpp" />
 		<Unit filename="libopeninv/src/my_fp.c">
 			<Option compilerVar="CC" />
 		</Unit>

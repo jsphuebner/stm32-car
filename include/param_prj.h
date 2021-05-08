@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.12.R-Fenix
+#define VER 1.13.R-Fenix
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 104
+//Next param id (increase when adding new parameter!): 108
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -55,6 +55,7 @@
     PARAM_ENTRY(CAT_AVAS,     avasfrq,     "Hz",      0,      65535,  40000,  104 ) \
     PARAM_ENTRY(CAT_AVAS,     avasfac,     "",        0,      1000,   0,      105 ) \
     PARAM_ENTRY(CAT_AVAS,     avasdc,      "%",       0,      65535,  20000,  106 ) \
+    PARAM_ENTRY(CAT_AVAS,     avasstop,    "rpm",     0,      65535,  2000,   107 ) \
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \

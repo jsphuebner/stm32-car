@@ -214,7 +214,7 @@ static void RunChaDeMo()
 {
    static uint32_t connectorLockTime = 0;
 
-   if (DigIo::charge_in.Get())
+   if (DigIo::charge_in.Get() && !chargeMode)
    {
       chargeMode = true;
       Param::SetInt(Param::opmode, MOD_CHARGESTART);
@@ -237,7 +237,7 @@ static void RunChaDeMo()
       Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
    //10s after locking tell EVSE that we closed the contactor (in fact we have no control)
-   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 1000)
+   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 1000 && DigIo::dcsw_out.Get())
    {
       ChaDeMo::SetContactor(true);
       Param::SetInt(Param::opmode, MOD_CHARGE);
@@ -344,7 +344,8 @@ static void GetDigInputs()
 
    if (Param::GetBool(Param::din_cruise))
       canio |= CAN_IO_CRUISE;
-   if (Param::GetBool(Param::din_start) || DigIo::start_in.Get())
+   //lock out start signal when charging
+   if ((Param::GetBool(Param::din_start) || DigIo::start_in.Get()) && !DigIo::charge_in.Get())
       canio |= CAN_IO_START;
    if (Param::GetBool(Param::din_brake) || DigIo::brake_in.Get())
       canio |= CAN_IO_BRAKE;
@@ -487,8 +488,9 @@ static void Ms10Task(void)
    else if (opmode == MOD_RUN)
    {
       DigIo::dcsw_out.Set();
+      DigIo::dash_out.Set();
       Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
-      Param::SetInt(Param::din_forward, 1);
+      Param::SetInt(Param::din_forward, !DigIo::charge_in.Get()); //lock out drive
 
       if (dcdcDelay > 0)
       {
@@ -498,8 +500,16 @@ static void Ms10Task(void)
       {
          dcdcVoltage = Param::Get(Param::udcdc);
       }
-      timer_set_oc_value(PWM_TIMER, TIM_OC3, Param::GetInt(Param::avasdc));
-      timer_set_period(PWM_TIMER, Param::GetInt(Param::avasfrq));
+
+      if (speed < Param::GetInt(Param::avasstop))
+      {
+         timer_set_oc_value(PWM_TIMER, TIM_OC3, Param::GetInt(Param::avasdc));
+         timer_set_period(PWM_TIMER, Param::GetInt(Param::avasfrq));
+      }
+      else
+      {
+         timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
+      }
    } //In charge mode charger will report DC bus voltage
    else if (udcbms > 0 && udccdm >= (udcbms - FP_FROMFLT(10)))
    {
@@ -606,9 +616,10 @@ extern "C" int main(void)
    s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //backward compatibility
+   Param::SetInt(Param::dislim, -1);
    parm_Change(Param::PARAM_LAST);
 
-   extern uint8_t lindata[15];
+   //extern uint8_t lindata[15];
 
    while(1)
    {
@@ -620,8 +631,8 @@ extern "C" int main(void)
          uint8_t* data = l.GetReceivedBytes();
 
          Param::SetInt(Param::tmpheater, data[1] - 40);
-         Param::SetInt(Param::udcheater, data[4] | ((lindata[5] & 3) << 8));
-         Param::SetFlt(Param::powerheater, FP_FROMINT(((data[5] >> 2) | (lindata[6] << 8)) * 20) / 1000);
+         Param::SetInt(Param::udcheater, data[4] | ((data[5] & 3) << 8));
+         Param::SetFlt(Param::powerheater, FP_FROMINT(((data[5] >> 2) | (data[6] << 8)) * 20) / 1000);
       }
    }
 
