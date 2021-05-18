@@ -576,6 +576,9 @@ extern "C" void tim2_isr(void)
    scheduler->Run();
 }
 
+//C++ run time requires that when using interfaces and not optimizing for size
+extern "C" void __cxa_pure_virtual() { while (1); }
+
 extern "C" int main(void)
 {
    extern const TERM_CMD termCmds[];

@@ -40,7 +40,7 @@
 */
 void clock_setup(void)
 {
-   RCC_CLOCK_SETUP();
+   rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
 
 	rcc_set_adcpre(RCC_CFGR_ADCPRE_PCLK2_DIV6);
 
