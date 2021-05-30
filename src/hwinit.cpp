@@ -40,9 +40,7 @@
 */
 void clock_setup(void)
 {
-   RCC_CLOCK_SETUP();
-
-	rcc_set_adcpre(RCC_CFGR_ADCPRE_PCLK2_DIV6);
+   rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
 
    //The reset value for PRIGROUP (=0) is not actually a defined
    //value. Explicitly set 16 preemtion priorities

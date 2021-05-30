@@ -26,6 +26,9 @@
 
 //Address of parameter block in flash
 #define PARAM_BLKSIZE 1024
+#define PARAM_BLKNUM  1
+#define CAN_BLKSIZE   1024
+#define CAN_BLKNUM    2
 
 typedef enum
 {
