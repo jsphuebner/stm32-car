@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.13.R
+#define VER 1.14.R
 
 
 /* Entries must be ordered as follows:
@@ -85,7 +85,6 @@
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
     VALUE_ENTRY(brakepressure,"dig",   2074 ) \
-    VALUE_ENTRY(potnom,       "%",     2017 ) \
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
     VALUE_ENTRY(tmpbat,       "°C",    2078 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \

@@ -74,7 +74,7 @@ void ChaDeMo::CheckSensorDeviation(uint16_t internalVoltage)
 
    vtgDev = ABS(vtgDev);
 
-   if (vtgDev > 10)
+   if (vtgDev > 10 && chargerOutputVoltage > 50)
    {
       vtgTimeout++;
    }
