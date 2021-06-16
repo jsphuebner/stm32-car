@@ -56,6 +56,13 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
             }
          }
       }
+      else if (bmsGrp == 4)
+      {
+         if (bmsGrpIndex == 0)
+         {
+            Param::SetInt(Param::tmpbat, (int)bytes[6]);
+         }
+      }
       else if (bmsGrp == 6)
       {
          if (bmsGrpIndex == 0)
@@ -159,7 +166,7 @@ void LeafBMS::RequestNextFrame(Can* can)
       else
       {
          bmsGrpIndex = -1;
-         bmsGrp = 6;
+         bmsGrp = 4;
          int min = 4500, max = 0, avg = 0;
 
          for (int i = 0; i < NUMCELLS; i++)
@@ -173,6 +180,26 @@ void LeafBMS::RequestNextFrame(Can* can)
          Param::SetInt(Param::batmin, min);
          Param::SetInt(Param::batmax, max);
          Param::SetInt(Param::batavg, avg / NUMCELLS);
+      }
+   }
+   else if (bmsGrp == 4)
+   {
+      if (bmsGrpIndex == -1)
+      {
+         bmsGrpIndex++;
+         canData[0] = 0x2 | 0x21 << 8 | bmsGrp << 16 | 0xff << 24;
+         can->Send(0x79B, canData);
+      }
+      else if (bmsGrpIndex < 2)
+      {
+         bmsGrpIndex++;
+         canData[0] = 0x30 | 0x1 << 8 | 0x0 << 16 | 0xff << 24;
+         can->Send(0x79B, canData);
+      }
+      else
+      {
+         bmsGrpIndex = -1;
+         bmsGrp = 6;
       }
    }
    else if (bmsGrp == 6)
