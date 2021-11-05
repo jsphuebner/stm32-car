@@ -23,6 +23,7 @@ bool ChaDeMo::chargeEnabled = false;
 bool ChaDeMo::parkingPosition = false;
 bool ChaDeMo::fault = false;
 bool ChaDeMo::contactorOpen = false;
+uint8_t ChaDeMo::version = 1;
 uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
 uint32_t ChaDeMo::rampedCurReq;
@@ -101,16 +102,16 @@ void ChaDeMo::SendMessages(Can* can)
 
    //Capacity fixed to 200 - so SoC resolution is 0.5
    data[0] = 0;
-   data[1] = (targetBatteryVoltage + 10) | 200 << 16;
+   data[1] = (targetBatteryVoltage + 40) | 200 << 16;
 
    can->Send(0x100, data);
 
-   data[0] = 0x00FEFF00;
+   data[0] = 0x00FEFF00; //45 minutes
    data[1] = 0;
 
    can->Send(0x101, data);
 
-   data[0] = 1 | ((uint32_t)targetBatteryVoltage << 8) | ((uint32_t)rampedCurReq << 24);
+   data[0] = version | ((uint32_t)targetBatteryVoltage << 8) | ((uint32_t)rampedCurReq << 24);
    data[1] = (uint32_t)curSensFault << 2 |
              (uint32_t)vtgSensFault << 4 |
              (uint32_t)chargeEnabled << 8 |

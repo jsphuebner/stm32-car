@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.16.R
+#define VER 1.21.R
 
 
 /* Entries must be ordered as follows:
@@ -29,25 +29,27 @@
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
-    PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,  -10,     7   ) \
+    PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,   5,      7   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruisestep,  "rpm",     1,      1000,   200,    3   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruiserampup,"rpm/100ms",1,     1000,   20,     9   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruiserampdn,"rpm/100ms",1,     1000,   20,     11  ) \
     PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101 ) \
-    PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    2,      1.1,    4   ) \
+    PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    5,      1.1,    4   ) \
     PARAM_ENTRY(CAT_POWER,    chargelimit, "A",       0,      255,    255,    10  ) \
     PARAM_ENTRY(CAT_POWER,    soclimit,    "%",       0,      100,    100,    12  ) \
+    PARAM_ENTRY(CAT_POWER,    udclimit,    "V",       0,      600,    400,    92  ) \
+    PARAM_ENTRY(CAT_POWER,    cdmcheckena, ONOFF,     0,      1,      1,      13  ) \
+    PARAM_ENTRY(CAT_POWER,    cdmversion,  "",        0,      2,      1,      14  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "dig",     0,      10000,  900,    90  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "dig",     0,      10000,  500,    91  ) \
-    PARAM_ENTRY(CAT_CONTACT,  udcthresh,   "V",       0,      500,    380,    92  ) \
+    PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "rpm",     0,      10000,  900,    90  ) \
+    PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "rpm",     0,      10000,  500,    91  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
-    PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     70,     60,     99  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatcurmax,  "A",       0,      400,    0,     100  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    25,     10,     98  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      0   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
@@ -56,9 +58,10 @@
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
-    VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
+    VALUE_ENTRY(opmode,       OPMODES, 2086 ) \
+    VALUE_ENTRY(invmode,      OPMODES, 2000 ) \
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
-    VALUE_ENTRY(cdmcureq,    "A",     2076 ) \
+    VALUE_ENTRY(cdmcureq,     "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
     VALUE_ENTRY(lbcdtc,       "",      2050 ) \
     VALUE_ENTRY(chgtime,      "min",   2079 ) \
@@ -74,6 +77,7 @@
     VALUE_ENTRY(power,        "kW",    2051 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(discurlim,    "A",     2082 ) \
+    VALUE_ENTRY(limreason,    LIMRS,   2084 ) \
     VALUE_ENTRY(idc,          "A",     2047 ) \
     VALUE_ENTRY(idccdm,       "A",     2067 ) \
     VALUE_ENTRY(idcdc,        "A",     2081 ) \
@@ -94,9 +98,9 @@
     VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
+    VALUE_ENTRY(ugauge,       "dig",   3021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
-    VALUE_ENTRY(heatcur,      "A",     2073 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
     VALUE_ENTRY(wheelfl,      "km/h",  2060 ) \
     VALUE_ENTRY(wheelfr,      "km/h",  2061 ) \
@@ -111,16 +115,18 @@
     VALUE_ENTRY(din_reverse,  ONOFF,   2028 ) \
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
+    VALUE_ENTRY(din_charge,   ONOFF,   2087 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2084
+//Next value Id: 2088
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
 #define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
+#define ONOFFFORCE   "0=Off, 1=On, 2=Force"
 #define OKERR        "0=Error, 1=Ok, 2=na"
 #define CANSPEEDS    "0=250k, 1=500k, 2=800k, 3=1M"
 #define CANIOS       "1=Cruise, 2=Start, 4=Brake, 8=Fwd, 16=Rev, 32=Bms"
@@ -129,6 +135,7 @@
 #define ERRLIGHTS    "0=Off, 4=EPC, 8=engine"
 #define CRUISESTATES "0=None, 1=On, 2=Disable, 4=SetN, 8=SetP"
 #define CDMSTAT      "1=Charging, 2=Malfunction, 4=ConnLock, 8=BatIncomp, 16=SystemMalfunction, 32=Stop"
+#define LIMRS        "0=Normal, 1=CapDrop, 2=Malfunction, 3=HighTemp, 4=LowTemp"
 #define CAT_THROTTLE "Throttle"
 #define CAT_POWER    "Power Limit"
 #define CAT_CONTACT  "Contactor Control"
@@ -158,6 +165,13 @@ enum cruisestate
    CRUISE_DISABLE = 2,
    CRUISE_SETN = 4,
    CRUISE_SETP = 8
+};
+
+enum onoffforce
+{
+   CMD_OFF = 0,
+   CMD_ON = 1,
+   CMD_FORCE = 2
 };
 
 enum _canio

@@ -187,16 +187,17 @@ static void RunChaDeMo()
 {
    static uint32_t connectorLockTime = 0;
 
-   if (!chargeMode && rtc_get_counter_val() > 100) //100*10ms = 1s
+   if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
    {
-      //If 2s after boot we don't see voltage on the inverter it means
-      //the inverter is off and we are in charge mode
+      //If 2s after boot we don't see voltage on the fuel sense line
+      //the car is off and we are in charge mode
       if (Param::GetInt(Param::udcinv) < 10)
       {
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
+         ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
       }
    }
 
@@ -214,8 +215,8 @@ static void RunChaDeMo()
       connectorLockTime = rtc_get_counter_val();
       Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
-   //10s after locking tell EVSE that we closed the contactor (in fact we have no control)
-   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 1000)
+   //after locking tell EVSE that we closed the contactor (in fact we have no control)
+   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK)
    {
       ChaDeMo::SetContactor(true);
       Param::SetInt(Param::opmode, MOD_CHARGE);
@@ -227,7 +228,9 @@ static void RunChaDeMo()
       int chargeLim = Param::GetInt(Param::chargelimit);
       chargeCur = MIN(MIN(255, chargeLim), chargeCur);
       ChaDeMo::SetChargeCurrent(chargeCur);
-      ChaDeMo::CheckSensorDeviation(Param::GetInt(Param::udcbms));
+
+      if (Param::GetBool(Param::cdmcheckena))
+         ChaDeMo::CheckSensorDeviation(Param::GetInt(Param::udcbms));
    }
 
    if (Param::GetInt(Param::opmode) == MOD_CHARGEND)
@@ -235,7 +238,7 @@ static void RunChaDeMo()
       ChaDeMo::SetChargeCurrent(0);
    }
 
-   ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udcthresh));
+   ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udclimit));
    ChaDeMo::SetSoC(Param::Get(Param::soc));
    Param::SetInt(Param::cdmcureq, ChaDeMo::GetRampedCurrentRequest());
 
@@ -419,19 +422,17 @@ static void Ms10Task(void)
    static int seq1Ctr = 0;
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
-   static int speedTimeout;
    static int dcdcDelay = 100;
+   static int ugaugemax = 0, ugaugesamples = 0, ugaugetimeout = 0;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
    int oilhyst = Param::GetInt(Param::oilhyst);
    int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
-   int opmode = Param::GetInt(Param::opmode);
+   int invmode = Param::GetInt(Param::invmode);
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
-   s32fp tmpm = Param::Get(Param::tmpm);
-   s32fp udcinv = Param::Get(Param::udcinv);
    s32fp idc = Param::Get(Param::idc);
    s32fp udcbms = Param::Get(Param::udcbms);
    s32fp power = FP_MUL(idc, udcbms) / 1000;
@@ -450,7 +451,7 @@ static void Ms10Task(void)
          accumulatedRegen -= consumptionIncrement;
          consumptionIncrement = 0;
       }
-      else if (accumulatedRegen > 0) //greater 0 but less then current draw
+      else if (accumulatedRegen > 0) //greater 0 but less than current draw
       {
          consumptionIncrement -= accumulatedRegen;
          accumulatedRegen = 0;
@@ -473,7 +474,30 @@ static void Ms10Task(void)
       DigIo::oil_out.Clear();
    }
 
-   if (opmode == MOD_RUN)
+   if (ugaugesamples == 100)
+   {
+      if (speed > 10)
+      {
+         ugaugetimeout = 10;
+      }
+      else if (ugaugetimeout > 0)
+      {
+         ugaugetimeout--;
+      }
+      bool charge = ugaugetimeout == 0 && ugaugemax < 100;
+      Param::SetInt(Param::din_charge, charge);
+      Param::SetInt(Param::ugauge, ugaugemax);
+      ugaugesamples = 0;
+      ugaugemax = 0;
+   }
+   else
+   {
+      int val = AnaIn::ugauge.Get();
+      ugaugesamples++;
+      ugaugemax = MAX(val, ugaugemax);
+   }
+
+   if (invmode == MOD_RUN)
    {
       if (vacuum > vacuumthresh)
       {
@@ -483,43 +507,31 @@ static void Ms10Task(void)
       {
          DigIo::vacuum_out.Set();
       }
-   }
 
-   if (speed == 0 && opmode == MOD_RUN)
-   {
-      if (speedTimeout > 0)
+      //Switch on heater when outside temperature is below threshold,
+      //SoC is above threshold, heater command is on and handbrake is off
+      //OR heater command is "Force"
+      if ((Param::Get(Param::tmpaux) < Param::Get(Param::heathresh) &&
+           Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
+           Param::GetBool(Param::heatcmd) &&
+           speed > 1000) ||
+           Param::GetInt(Param::heatcmd) == CMD_FORCE
+          )
       {
-         speedTimeout--;
-      }
-      else if (Param::Get(Param::tmpaux) < Param::Get(Param::heathresh))
-      {
-         s32fp heatmax = Param::Get(Param::heatmax);
-         s32fp heatcur = (heatmax - tmpm) * 50;
-         s32fp heatcurmax = Param::Get(Param::heatcurmax);
-
-         heatcur = MIN(heatcurmax, heatcur);
-         Param::SetFlt(Param::heatcur, heatcur);
+         DigIo::heater_out.Set();
       }
       else
       {
-         Param::SetFlt(Param::heatcur, 0);
+         DigIo::heater_out.Clear();
       }
    }
    else
    {
-      speedTimeout = 100;
-      Param::SetFlt(Param::heatcur, 0);
+      DigIo::vacuum_out.Set();
+      DigIo::heater_out.Clear();
    }
 
-   //If inverter voltage drops 50V below BMS voltage
-   //Drop DC contactor and put inverter in neutral
-   //This happens if charger is plugged in while car is still in drive
-   if (udcinv < (udcbms - FP_FROMINT(50)))
-   {
-      Param::SetInt(Param::din_forward, 0);
-      DigIo::dcsw_out.Clear();
-   }
-   else if (opmode == MOD_OFF)
+   if (invmode == MOD_OFF)
    {
       //Do not drop DC contactor in off mode because pre-charge
       //is always on and we will burn the precharge resistor
@@ -531,7 +543,7 @@ static void Ms10Task(void)
    {
       DigIo::dcsw_out.Set();
       Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
-      Param::SetInt(Param::din_forward, 1);
+      Param::SetInt(Param::din_forward, !Param::GetBool(Param::din_charge));
 
       if (dcdcDelay > 0)
       {
@@ -569,6 +581,8 @@ static void Ms10Task(void)
       canData[1] = 0x1A | cruiselight << 18 | check << 24;
 
       can->Send(0x480, canData);
+
+      Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
 
       if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
          can->SendAll();

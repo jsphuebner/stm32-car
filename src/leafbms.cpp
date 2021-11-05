@@ -119,6 +119,9 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
    {
       int soh = bytes[4] >> 1;
       int cond = (bytes[6] >> 5) + ((bytes[5] & 0x3) << 3);
+      int limres = bytes[5] >> 5;
+
+      Param::SetInt(Param::limreason, limres);
 
       //Only acquire quick charge remaining time
       if (cond == 0)
