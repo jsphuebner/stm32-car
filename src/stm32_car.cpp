@@ -386,8 +386,9 @@ static void ProcessThrottle()
    int pot1 = AnaIn::throttle1.Get();
    int pot2 = AnaIn::throttle2.Get();
    int brakePressure = Param::GetInt(Param::brakepressure);
+   int offPedalRegen = Param::GetInt(Param::regenlevel) * 60;
 
-   brakePressure += Param::GetInt(Param::regenlevel) * 40;
+   brakePressure = MAX(offPedalRegen, brakePressure);
    brakePressure = MIN(255, brakePressure);
 
    /* hard coded throttle redundance */
