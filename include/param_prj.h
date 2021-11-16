@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.13.R-Fenix
+#define VER 1.14.R-Fenix
 
 
 /* Entries must be ordered as follows:
@@ -39,12 +39,10 @@
     PARAM_ENTRY(CAT_POWER,    soclimit,    "%",       0,      100,    100,    12  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "dig",     0,      10000,  900,    90  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "dig",     0,      10000,  500,    91  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcthresh,   "V",       0,      500,    380,    92  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
-    PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
+    PARAM_ENTRY(CAT_CONTACT,  dashlight,    ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     90,     85,     99  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatpowmax,  "W",       0,      7000,   0,     100  ) \

@@ -327,7 +327,6 @@ static void Ms100Task(void)
 
    ProcessCruiseControlButtons();
    RunChaDeMo();
-   //SendLin();
 
    if (!chargeMode && rtc_get_counter_val() > 100)
    {
@@ -390,8 +389,6 @@ static void Ms10Task(void)
    static int dcdcDelay = 100;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
-   int oilthresh = Param::GetInt(Param::oilthresh);
-   int oilhyst = Param::GetInt(Param::oilhyst);
    int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
    int opmode = Param::GetInt(Param::opmode);
@@ -429,15 +426,6 @@ static void Ms10Task(void)
 
    Param::SetFlt(Param::power, power);
 
-   if (speed > oilthresh)
-   {
-      DigIo::oil_out.Set();
-   }
-   else if (speed < oilhyst)
-   {
-      DigIo::oil_out.Clear();
-   }
-
    if (opmode < MOD_CHARGESTART)
    {
       if (vacuum > vacuumthresh)
@@ -474,6 +462,15 @@ static void Ms10Task(void)
    {
       speedTimeout = 100;
       Param::SetFlt(Param::heatcur, 0);
+   }
+
+   if (Param::GetBool(Param::dashlight))
+   {
+      DigIo::dash_out.Set();
+   }
+   else
+   {
+      DigIo::dash_out.Clear();
    }
 
    if (opmode == MOD_OFF)
