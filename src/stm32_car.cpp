@@ -133,14 +133,16 @@ static void ProcessCruiseControlButtons()
    {
       if (cruisespeed <= 0)
       {
-         if (cruisestt & CRUISE_SETN) //Start cruise control at current speed
+         int currentSpeed = Param::GetInt(Param::speed);
+
+         if (cruisestt & CRUISE_SETN && currentSpeed > 500) //Start cruise control at current speed
          {
-            cruiseTarget = Param::GetInt(Param::speed);
+            cruiseTarget = currentSpeed;
             cruisespeed = cruiseTarget;
          }
-         else if (cruisestt & CRUISE_SETP) //resume via ramp
+         else if (cruisestt & CRUISE_SETP && cruiseTarget > 0) //resume via ramp
          {
-            cruisespeed = Param::GetInt(Param::speed);
+            cruisespeed = currentSpeed;
          }
       }
       else
