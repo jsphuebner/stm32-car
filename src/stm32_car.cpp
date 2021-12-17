@@ -516,8 +516,7 @@ static void Ms10Task(void)
       //OR heater command is "Force"
       if ((Param::Get(Param::tmpaux) < Param::Get(Param::heathresh) &&
            Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
-           Param::GetBool(Param::heatcmd) &&
-           speed > 1000) ||
+           Param::GetBool(Param::heatcmd)) ||
            Param::GetInt(Param::heatcmd) == CMD_FORCE
           )
       {
