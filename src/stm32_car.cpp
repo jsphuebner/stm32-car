@@ -397,6 +397,9 @@ static void ProcessThrottle()
    if (pot2 > 50)
    {
       pot1 = MIN(pot1, pot2 * 2);
+
+      if (ABS(2 * pot2 - pot1) > 200 && pot1 < 4090)
+         Param::SetInt(Param::errlights, 4);
    }
 
    Param::SetInt(Param::pot, pot1);
@@ -667,7 +670,8 @@ extern "C" int main(void)
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
-   Param::SetInt(Param::version, 4); //backward compatibility
+   Param::SetInt(Param::version, 4); //COM protocol version 4
+   Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
    parm_Change(Param::PARAM_LAST);
 
    while(1)

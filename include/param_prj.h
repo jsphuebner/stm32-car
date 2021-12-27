@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.21.R
+#define VER 1.23.R
 
 
 /* Entries must be ordered as follows:
@@ -47,7 +47,7 @@
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
-    PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    25,     10,     98  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      0   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
@@ -90,7 +90,9 @@
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
     VALUE_ENTRY(brakepressure,"dig",   2074 ) \
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
-    VALUE_ENTRY(tmpbat,       "°C",    2078 ) \
+    VALUE_ENTRY(tmpbat1,      "°C",    2078 ) \
+    VALUE_ENTRY(tmpbat2,      "°C",    2088 ) \
+    VALUE_ENTRY(tmpbat3,      "°C",    2089 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
@@ -120,7 +122,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2088
+//Next value Id: 2090
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"

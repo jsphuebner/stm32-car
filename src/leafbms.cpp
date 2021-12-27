@@ -60,7 +60,15 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
       {
          if (bmsGrpIndex == 0)
          {
-            Param::SetInt(Param::tmpbat, (int)bytes[6]);
+            Param::SetInt(Param::tmpbat1, (int)bytes[6]);
+         }
+         else if (bmsGrpIndex == 1)
+         {
+            Param::SetInt(Param::tmpbat2, (int)bytes[2]);
+         }
+         else if (bmsGrpIndex == 2)
+         {
+            Param::SetInt(Param::tmpbat3, (int)bytes[1]);
          }
       }
       else if (bmsGrp == 6)
@@ -143,7 +151,7 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
       {
          int tmpbat = bytes[2] >> 1;
          tmpbat -= 40;
-         Param::SetInt(Param::tmpbat, tmpbat);
+         Param::SetInt(Param::tmpbat1, tmpbat);
       }
    }
 }
@@ -294,8 +302,11 @@ void LeafBMS::Send100msMessages(Can* can)
    canData[1] |= crc << 8;
    can->Send(0x50C, canData);
 
+   s32fp tempOut = Param::Get(Param::tmpaux);
+   tempOut >>= FRAC_DIGITS - 1; //convert to integer with gain 2
+   tempOut += 81;
    canData[0] = 0;
-   canData[1] = 120 << 24; //outside temp, offset -40, gain 0.5. 120*0,5-40=20
+   canData[1] = tempOut << 24; //outside temp, offset -40, gain 0.5. 120*0,5-40=20
    can->Send(0x54C, canData);
 
    run100ms = (run100ms + 1) & 3;
