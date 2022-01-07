@@ -49,6 +49,7 @@ HWREV hwRev; //Hardware variant of board we are running on
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static Can* can;
+static int ignitionTimeout = 0;
 
 static void Ms500Task(void)
 {
@@ -329,6 +330,17 @@ static void Ms100Task(void)
    ProcessCruiseControlButtons();
    RunChaDeMo();
 
+   if (ignitionTimeout > 0)
+   {
+      ignitionTimeout--;
+   }
+   //Car has been turned off, reset inverter bus voltage and state
+   else
+   {
+      Param::SetInt(Param::udcinv, 0);
+      Param::SetInt(Param::invmode, 0);
+   }
+
    if (!chargeMode && rtc_get_counter_val() > 100)
    {
       if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
@@ -530,10 +542,44 @@ static void Ms10Task(void)
          DigIo::heater_out.Clear();
       }
    }
+   else if (chargeMode)
+   {
+      DigIo::vacuum_out.Set();
+
+      if (Param::GetInt(Param::udcbms) > 100 &&
+         (Param::Get(Param::udcbms) - Param::Get(Param::udcinv)) < Param::Get(Param::bmsinvdiff))
+      {
+         DigIo::dcsw_out.Set();
+
+         if (dcdcDelay > 0)
+         {
+            dcdcDelay--;
+         }
+         else
+         {
+            dcdcVoltage = Param::Get(Param::udcdc);
+
+            if (Param::GetBool(Param::heatcmd))
+            {
+               DigIo::heater_out.Set();
+            }
+            else
+            {
+               DigIo::heater_out.Clear();
+            }
+         }
+      }
+      else
+      {
+         DigIo::heater_out.Clear();
+         dcdcDelay = 100;
+      }
+   }
    else
    {
       DigIo::vacuum_out.Set();
       DigIo::heater_out.Clear();
+      dcdcDelay = 100;
    }
 
    if (invmode == MOD_OFF)
@@ -542,13 +588,20 @@ static void Ms10Task(void)
       //is always on and we will burn the precharge resistor
       //because the DC/DC converter still draws power
       Param::SetInt(Param::speedmod, 0);
-      dcdcDelay = 100;
+
+      //Inverter is unpowered -> DC relays are unpowered -> release turn-on signal so they
+      //don't turn on without precharge
+      if (Param::GetInt(Param::udcinv) == 0)
+      {
+         DigIo::heater_out.Clear();
+         DigIo::dcsw_out.Clear();
+      }
    }
    else
    {
       DigIo::dcsw_out.Set();
       Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
-      Param::SetInt(Param::din_forward, !Param::GetBool(Param::din_charge));
+      Param::SetInt(Param::din_forward, !chargeMode);
 
       if (dcdcDelay > 0)
       {
@@ -574,6 +627,7 @@ static void Ms10Task(void)
    LimitThrottle();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
+   Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
    if (!chargeMode)
@@ -613,6 +667,7 @@ static void CanCallback(uint32_t id, uint32_t data[2])
       break;
    case 0x420:
       Param::SetFlt(Param::tmpaux, FP_FROMINT((((data[0] >> 8) & 0xFF) - 100)) / 2);
+      ignitionTimeout = 10;
       break;
    default:
       LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
@@ -672,7 +727,7 @@ extern "C" int main(void)
 
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
-   parm_Change(Param::PARAM_LAST);
+   Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
 
    while(1)
       t.Run();

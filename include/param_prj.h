@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.23.R
+#define VER 1.26.R
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 105
+//Next param id (increase when adding new parameter!): 107
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -40,6 +40,7 @@
     PARAM_ENTRY(CAT_POWER,    udclimit,    "V",       0,      600,    400,    92  ) \
     PARAM_ENTRY(CAT_POWER,    cdmcheckena, ONOFF,     0,      1,      1,      13  ) \
     PARAM_ENTRY(CAT_POWER,    cdmversion,  "",        0,      2,      1,      14  ) \
+    PARAM_ENTRY(CAT_CONTACT,  bmsinvdiff,  "V",       0,      100,    0,     106 ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
     PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "rpm",     0,      10000,  900,    90  ) \
@@ -49,7 +50,7 @@
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      0   ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
@@ -118,11 +119,12 @@
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(din_charge,   ONOFF,   2087 ) \
+    VALUE_ENTRY(dout_dcsw,    ONOFF,   2090 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2090
+//Next value Id: 2091
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
