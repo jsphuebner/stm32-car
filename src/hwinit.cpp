@@ -67,7 +67,7 @@ void clock_setup(void)
 
 void write_bootloader_pininit()
 {
-   struct pincommands *flashCommands = (struct pincommands *)PINDEF_ADDRESS;
+/*   struct pincommands *flashCommands = (struct pincommands *)PINDEF_ADDRESS;
    struct pincommands commands;
 
    memset32((int*)&commands, 0, PINDEF_NUMWORDS);
@@ -98,7 +98,7 @@ void write_bootloader_pininit()
          flash_program_word(PINDEF_ADDRESS + idx * sizeof(uint32_t), *pData);
       }
       flash_lock();
-   }
+   }*/
 }
 
 /**

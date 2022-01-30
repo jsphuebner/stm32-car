@@ -96,9 +96,18 @@ static void SendLin()
 {
    static bool read = true;
 
+   if (lin->HasReceived(22, 8))
+   {
+      uint8_t* data = lin->GetReceivedBytes();
+
+      Param::SetInt(Param::tmpheater, data[1] - 40);
+      Param::SetInt(Param::udcheater, data[4] | ((data[5] & 3) << 8));
+      Param::SetFlt(Param::powerheater, FP_FROMINT(((data[5] >> 2) | (data[6] << 8)) * 20) / 1000);
+   }
+
    if (read)
    {
-      lin->Send(22, 0, 0);
+      lin->Request(22, 0, 0);
    }
    else
    {
@@ -108,7 +117,7 @@ static void SendLin()
       lindata[2] = 0;
       lindata[3] = Param::GetInt(Param::heatpowmax) > 0 ? 8 : 0;
 
-      lin->Send(21, lindata, sizeof(lindata));
+      lin->Request(21, lindata, sizeof(lindata));
    }
 
    read = !read;
@@ -521,6 +530,7 @@ static void Ms10Task(void)
    cur = FP_DIV((1000 * Param::Get(Param::dislim)), Param::Get(Param::udcbms));
    cur = FP_MUL(cur, Param::Get(Param::powerslack));
    Param::SetFlt(Param::discurlim, cur);
+   Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
 
    GetDigInputs();
    ProcessThrottle();
@@ -624,16 +634,6 @@ extern "C" int main(void)
    while(1)
    {
       t.Run();
-      l.Receive();
-
-      if (l.HasReceived(22, 8))
-      {
-         uint8_t* data = l.GetReceivedBytes();
-
-         Param::SetInt(Param::tmpheater, data[1] - 40);
-         Param::SetInt(Param::udcheater, data[4] | ((data[5] & 3) << 8));
-         Param::SetFlt(Param::powerheater, FP_FROMINT(((data[5] >> 2) | (data[6] << 8)) * 20) / 1000);
-      }
    }
 
    return 0;

@@ -77,6 +77,7 @@
     VALUE_ENTRY(powerheater,  "kW",    2051 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(discurlim,    "A",     2082 ) \
+    VALUE_ENTRY(limreason,    LIMRS,   2084 ) \
     VALUE_ENTRY(idc,          "A",     2047 ) \
     VALUE_ENTRY(idccdm,       "A",     2067 ) \
     VALUE_ENTRY(idcdc,        "A",     2081 ) \
@@ -90,7 +91,9 @@
     VALUE_ENTRY(brakepressure,"dig",   2074 ) \
     VALUE_ENTRY(potnom,       "%",     2017 ) \
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
-    VALUE_ENTRY(tmpbat,       "°C",    2078 ) \
+    VALUE_ENTRY(tmpbat1,      "°C",    2078 ) \
+    VALUE_ENTRY(tmpbat2,      "°C",    2088 ) \
+    VALUE_ENTRY(tmpbat3,      "°C",    2089 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
@@ -117,6 +120,7 @@
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
     VALUE_ENTRY(din_charge,   ONOFF,   2084 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
+    VALUE_ENTRY(dout_dcsw,    ONOFF,   2078 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
@@ -135,6 +139,7 @@
 #define ERRLIGHTS    "0=Off, 4=EPC, 8=engine"
 #define CRUISESTATES "0=None, 1=On, 2=Disable, 4=SetN, 8=SetP"
 #define CDMSTAT      "1=Charging, 2=Malfunction, 4=ConnLock, 8=BatIncomp, 16=SystemMalfunction, 32=Stop"
+#define LIMRS        "0=Normal, 1=CapDrop, 2=Malfunction, 3=HighTemp, 4=LowTemp"
 #define CAT_THROTTLE "Throttle"
 #define CAT_POWER    "Power Limit"
 #define CAT_CONTACT  "Contactor Control"
