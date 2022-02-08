@@ -72,12 +72,6 @@ void write_bootloader_pininit()
 
    memset32((int*)&commands, 0, PINDEF_NUMWORDS);
 
-   //Keep vacuum pump off in bootloader
-   commands.pindef[0].port = GPIOB;
-   commands.pindef[0].pin = GPIO1;
-   commands.pindef[0].inout = PIN_OUT;
-   commands.pindef[0].level = 1;
-
    crc_reset();
    uint32_t crc = crc_calculate_block(((uint32_t*)&commands), PINDEF_NUMWORDS);
    commands.crc = crc;

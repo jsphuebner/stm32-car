@@ -337,8 +337,8 @@ static void Ms100Task(void)
    //Car has been turned off, reset inverter bus voltage and state
    else
    {
-      Param::SetInt(Param::udcinv, 0);
-      Param::SetInt(Param::invmode, 0);
+      //Param::SetInt(Param::udcinv, 0);
+      Param::SetInt(Param::invmode, 1);
    }
 
    if (!chargeMode && rtc_get_counter_val() > 100)
@@ -519,11 +519,11 @@ static void Ms10Task(void)
    {
       if (vacuum > vacuumthresh)
       {
-         DigIo::vacuum_out.Clear();
+         DigIo::vacuum_out.Set();
       }
       else if (vacuum < vacuumhyst)
       {
-         DigIo::vacuum_out.Set();
+         DigIo::vacuum_out.Clear();
       }
 
       //Switch on heater when outside temperature is below threshold,
@@ -544,7 +544,7 @@ static void Ms10Task(void)
    }
    else if (chargeMode)
    {
-      DigIo::vacuum_out.Set();
+      DigIo::vacuum_out.Clear();
 
       if (Param::GetInt(Param::udcbms) > 100 &&
          (Param::Get(Param::udcbms) - Param::Get(Param::udcinv)) < Param::Get(Param::bmsinvdiff))
@@ -577,7 +577,7 @@ static void Ms10Task(void)
    }
    else
    {
-      DigIo::vacuum_out.Set();
+      DigIo::vacuum_out.Clear();
       DigIo::heater_out.Clear();
       dcdcDelay = 100;
    }
@@ -630,22 +630,21 @@ static void Ms10Task(void)
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
+
+   uint32_t canData[2];
+
+   //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
+   uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
+   canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
+   canData[1] = 0x1A | cruiselight << 18 | check << 24;
+
+   can->Send(0x480, canData);
+
    if (!chargeMode)
-   {
-      uint32_t canData[2];
-
-      //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
-      uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
-      canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
-      canData[1] = 0x1A | cruiselight << 18 | check << 24;
-
-      can->Send(0x480, canData);
-
       Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
 
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
-         can->SendAll();
-   }
+   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
+      can->SendAll();
 }
 
 /** This function is called when the user changes a parameter */
@@ -728,6 +727,8 @@ extern "C" int main(void)
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
    Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
+   Param::SetInt(Param::udcinv, 360);
+   Param::SetInt(Param::tmpm, 90);
 
    while(1)
       t.Run();
