@@ -194,7 +194,7 @@ static void RunChaDeMo()
    {
       //If 2s after boot we don't see voltage on the fuel sense line
       //the car is off and we are in charge mode
-      if (Param::GetInt(Param::udcinv) < 10)
+      if (Param::GetInt(Param::udcinv) == 0)
       {
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
@@ -338,7 +338,7 @@ static void Ms100Task(void)
    else
    {
       //Param::SetInt(Param::udcinv, 0);
-      Param::SetInt(Param::invmode, 1);
+      Param::SetInt(Param::invmode, 0);
    }
 
    if (!chargeMode && rtc_get_counter_val() > 100)
@@ -434,6 +434,48 @@ static void LimitThrottle()
    Param::SetFlt(Param::calcthrotmin, throtmin);
 }
 
+static void SimulateOilSensor()
+{
+   static int ctr = 0;
+   static int state = 0;
+
+   switch (state)
+   {
+   case 0:
+      DigIo::oilevel_out.Set();
+      ctr = 2;
+      state++;
+      break;
+   case 1:
+      if (ctr == 0)
+      {
+         DigIo::oilevel_out.Clear();
+         ctr = 3;
+         state++;
+      }
+      ctr--;
+      break;
+   case 2:
+      if (ctr == 0)
+      {
+         DigIo::oilevel_out.Set();
+         ctr = 30;
+         state++;
+      }
+      ctr--;
+      break;
+   case 3:
+      if (ctr == 0)
+      {
+         DigIo::oilevel_out.Clear();
+         state = 0;
+      }
+      ctr--;
+      break;
+   }
+
+}
+
 static void Ms10Task(void)
 {
    const uint8_t seq2[] = { 0x10, 0x68, 0x94, 0xC0 };
@@ -441,7 +483,6 @@ static void Ms10Task(void)
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
    static int dcdcDelay = 100;
-   static int ugaugemax = 0, ugaugesamples = 0, ugaugetimeout = 0;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
@@ -485,34 +526,22 @@ static void Ms10Task(void)
 
    if (speed > oilthresh)
    {
-      DigIo::oil_out.Set();
+      DigIo::oilpres_out.Set();
    }
    else if (speed < oilhyst)
    {
-      DigIo::oil_out.Clear();
+      DigIo::oilpres_out.Clear();
    }
 
-   if (ugaugesamples == 100)
+   SimulateOilSensor();
+
+   if (Param::GetInt(Param::heatcmd) == CMD_FORCE)
    {
-      if (speed > 10)
-      {
-         ugaugetimeout = 10;
-      }
-      else if (ugaugetimeout > 0)
-      {
-         ugaugetimeout--;
-      }
-      bool charge = ugaugetimeout == 0 && ugaugemax < 100;
-      Param::SetInt(Param::din_charge, charge);
-      Param::SetInt(Param::ugauge, ugaugemax);
-      ugaugesamples = 0;
-      ugaugemax = 0;
+      DigIo::rev_out.Set();
    }
    else
    {
-      int val = AnaIn::ugauge.Get();
-      ugaugesamples++;
-      ugaugemax = MAX(val, ugaugemax);
+      DigIo::rev_out.Clear();
    }
 
    if (invmode == MOD_RUN)
@@ -529,7 +558,7 @@ static void Ms10Task(void)
       //Switch on heater when outside temperature is below threshold,
       //SoC is above threshold, heater command is on and handbrake is off
       //OR heater command is "Force"
-      if ((Param::Get(Param::tmpaux) < Param::Get(Param::heathresh) &&
+      /*if ((Param::Get(Param::tmpaux) < Param::Get(Param::heathresh) &&
            Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
            Param::GetBool(Param::heatcmd)) ||
            Param::GetInt(Param::heatcmd) == CMD_FORCE
@@ -540,45 +569,12 @@ static void Ms10Task(void)
       else
       {
          DigIo::heater_out.Clear();
-      }
-   }
-   else if (chargeMode)
-   {
-      DigIo::vacuum_out.Clear();
-
-      if (Param::GetInt(Param::udcbms) > 100 &&
-         (Param::Get(Param::udcbms) - Param::Get(Param::udcinv)) < Param::Get(Param::bmsinvdiff))
-      {
-         DigIo::dcsw_out.Set();
-
-         if (dcdcDelay > 0)
-         {
-            dcdcDelay--;
-         }
-         else
-         {
-            dcdcVoltage = Param::Get(Param::udcdc);
-
-            if (Param::GetBool(Param::heatcmd))
-            {
-               DigIo::heater_out.Set();
-            }
-            else
-            {
-               DigIo::heater_out.Clear();
-            }
-         }
-      }
-      else
-      {
-         DigIo::heater_out.Clear();
-         dcdcDelay = 100;
-      }
+      }*/
    }
    else
    {
       DigIo::vacuum_out.Clear();
-      DigIo::heater_out.Clear();
+      //DigIo::heater_out.Clear();
       dcdcDelay = 100;
    }
 
@@ -593,7 +589,7 @@ static void Ms10Task(void)
       //don't turn on without precharge
       if (Param::GetInt(Param::udcinv) == 0)
       {
-         DigIo::heater_out.Clear();
+         //DigIo::heater_out.Clear();
          DigIo::dcsw_out.Clear();
       }
    }
