@@ -188,39 +188,17 @@ static void ProcessCruiseControlButtons()
 
 static void RunChaDeMo()
 {
-   static uint32_t connectorLockTime = 0;
 
-   if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
+   if (Param::GetInt(Param::invmode) == INVMOD_CHARGE)
    {
-      //If 2s after boot we don't see voltage on the fuel sense line
-      //the car is off and we are in charge mode
-      if (Param::GetInt(Param::udcinv) == 0)
-      {
-         chargeMode = true;
-         Param::SetInt(Param::opmode, MOD_CHARGESTART);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
-         ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
-      }
+      chargeMode = true;
+      Param::SetInt(Param::opmode, MOD_CHARGESTART);
    }
 
    /* 1s after entering charge mode, enable charge permission */
    if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && rtc_get_counter_val() > 200)
    {
       ChaDeMo::SetEnabled(true);
-      //Use fuel gauge line to control charge enable signal
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, GAUGEMAX);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
-   }
-
-   if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
-   {
-      connectorLockTime = rtc_get_counter_val();
-      Param::SetInt(Param::opmode, MOD_CHARGELOCK);
-   }
-   //after locking tell EVSE that we closed the contactor (in fact we have no control)
-   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK)
-   {
       ChaDeMo::SetContactor(true);
       Param::SetInt(Param::opmode, MOD_CHARGE);
    }
@@ -257,8 +235,6 @@ static void RunChaDeMo()
             ChaDeMo::SetGeneralFault();
          }
          ChaDeMo::SetEnabled(false);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
@@ -294,14 +270,14 @@ static void SendVAG100msMessage()
 static void SetFuelGauge()
 {
    int dcoffset = Param::GetInt(Param::gaugeoffset);
-   int tmpaux = Param::GetInt(Param::tmpaux);
+   //int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
    int soctest = Param::GetInt(Param::soctest);
    int soc = Param::GetInt(Param::soc);
    soc = soctest != 0 ? soctest : soc;
    soc -= Param::GetInt(Param::gaugebalance);
    //Temperature compensation 1 digit per degree
-   dcoffset -= tmpaux;
+   //dcoffset -= tmpaux;
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
    int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
 
@@ -330,24 +306,15 @@ static void Ms100Task(void)
    ProcessCruiseControlButtons();
    RunChaDeMo();
 
-   if (ignitionTimeout > 0)
-   {
-      ignitionTimeout--;
-   }
-   //Car has been turned off, reset inverter bus voltage and state
-   else
-   {
-      //Param::SetInt(Param::udcinv, 0);
-      Param::SetInt(Param::invmode, 0);
-   }
+   bool start = Param::GetInt(Param::invmode) == MOD_OFF;
+   start &= Param::GetInt(Param::udcinv) >= (Param::GetInt(Param::udcbms) - 10);
 
-   if (!chargeMode && rtc_get_counter_val() > 100)
-   {
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
-         can->SendAll();
-      SendVAG100msMessage();
-      SetFuelGauge();
-   }
+   Param::SetInt(Param::din_start, start);
+
+   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
+      can->SendAll();
+   SendVAG100msMessage();
+   SetFuelGauge();
 }
 
 static void GetDigInputs()
@@ -399,6 +366,7 @@ static void ProcessThrottle()
 {
    int pot1 = AnaIn::throttle1.Get();
    int pot2 = AnaIn::throttle2.Get();
+   int drivesel = AnaIn::drivesel.Get();
    int brakePressure = Param::GetInt(Param::brakepressure);
    int offPedalRegen = Param::GetInt(Param::regenlevel) * 60;
 
@@ -417,6 +385,7 @@ static void ProcessThrottle()
    Param::SetInt(Param::pot, pot1);
    Param::SetInt(Param::pot2, pot2);
    Param::SetInt(Param::potbrake, brakePressure);
+   Param::SetInt(Param::drivesel, drivesel);
 }
 
 static void LimitThrottle()
@@ -473,7 +442,35 @@ static void SimulateOilSensor()
       ctr--;
       break;
    }
+}
 
+static void SetRevCounter()
+{
+   static int displayTicks = 0;
+   static int regenLevelLast = 0;
+   int regenLevel = Param::GetInt(Param::regenlevel);
+
+   if (1)
+   {
+      DigIo::oilpres_out.Clear();
+      Param::SetInt(Param::speedmod, 0);
+   }
+   else if (regenLevel != regenLevelLast)
+   {
+      displayTicks = 100;
+      Param::SetInt(Param::speedmod, 1000 + regenLevel * 1000);
+   }
+   else if (displayTicks > 0)
+   {
+      displayTicks--;
+   }
+   else
+   {
+      DigIo::oilpres_out.Set();
+      Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
+   }
+
+   regenLevelLast = regenLevel;
 }
 
 static void Ms10Task(void)
@@ -482,13 +479,9 @@ static void Ms10Task(void)
    static int seq1Ctr = 0;
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
-   static int dcdcDelay = 100;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
-   int oilthresh = Param::GetInt(Param::oilthresh);
-   int oilhyst = Param::GetInt(Param::oilhyst);
    int vacuum = AnaIn::vacuum.Get();
-   int speed = Param::GetInt(Param::speed);
    int invmode = Param::GetInt(Param::invmode);
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
@@ -524,16 +517,8 @@ static void Ms10Task(void)
 
    Param::SetFlt(Param::power, power);
 
-   if (speed > oilthresh)
-   {
-      DigIo::oilpres_out.Set();
-   }
-   else if (speed < oilhyst)
-   {
-      DigIo::oilpres_out.Clear();
-   }
-
    SimulateOilSensor();
+   SetRevCounter();
 
    if (Param::GetInt(Param::heatcmd) == CMD_FORCE)
    {
@@ -554,59 +539,11 @@ static void Ms10Task(void)
       {
          DigIo::vacuum_out.Clear();
       }
-
-      //Switch on heater when outside temperature is below threshold,
-      //SoC is above threshold, heater command is on and handbrake is off
-      //OR heater command is "Force"
-      /*if ((Param::Get(Param::tmpaux) < Param::Get(Param::heathresh) &&
-           Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
-           Param::GetBool(Param::heatcmd)) ||
-           Param::GetInt(Param::heatcmd) == CMD_FORCE
-          )
-      {
-         DigIo::heater_out.Set();
-      }
-      else
-      {
-         DigIo::heater_out.Clear();
-      }*/
+      Param::SetInt(Param::opmode, MOD_RUN);
    }
    else
    {
       DigIo::vacuum_out.Clear();
-      //DigIo::heater_out.Clear();
-      dcdcDelay = 100;
-   }
-
-   if (invmode == MOD_OFF)
-   {
-      //Do not drop DC contactor in off mode because pre-charge
-      //is always on and we will burn the precharge resistor
-      //because the DC/DC converter still draws power
-      Param::SetInt(Param::speedmod, 0);
-
-      //Inverter is unpowered -> DC relays are unpowered -> release turn-on signal so they
-      //don't turn on without precharge
-      if (Param::GetInt(Param::udcinv) == 0)
-      {
-         //DigIo::heater_out.Clear();
-         DigIo::dcsw_out.Clear();
-      }
-   }
-   else
-   {
-      DigIo::dcsw_out.Set();
-      Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
-      Param::SetInt(Param::din_forward, !chargeMode);
-
-      if (dcdcDelay > 0)
-      {
-         dcdcDelay--;
-      }
-      else
-      {
-         dcdcVoltage = Param::Get(Param::udcdc);
-      }
    }
 
    s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
@@ -635,9 +572,6 @@ static void Ms10Task(void)
    canData[1] = 0x1A | cruiselight << 18 | check << 24;
 
    can->Send(0x480, canData);
-
-   if (!chargeMode)
-      Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
 
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
       can->SendAll();
@@ -723,8 +657,6 @@ extern "C" int main(void)
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
    Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
-   Param::SetInt(Param::udcinv, 360);
-   Param::SetInt(Param::tmpm, 90);
 
    while(1)
       t.Run();

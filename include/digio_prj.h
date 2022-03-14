@@ -7,7 +7,6 @@
     DIG_IO_ENTRY(cruise_in,   GPIOB, GPIO5,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(start_in,    GPIOB, GPIO6,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(brake_in,    GPIOA, GPIO2,  PinMode::INPUT_PD)   \
-    DIG_IO_ENTRY(mprot_in,    GPIOA, GPIO3,  PinMode::INPUT_PU)    \
     DIG_IO_ENTRY(fwd_in,      GPIOA, GPIO4,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(rev_in,      GPIOC, GPIO6,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(emcystop_in, GPIOC, GPIO7,  PinMode::INPUT_PD)   \

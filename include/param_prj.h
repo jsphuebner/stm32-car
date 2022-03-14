@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.27.R-A2
+#define VER 1.28.R-A2
 
 
 /* Entries must be ordered as follows:
@@ -43,16 +43,14 @@
     PARAM_ENTRY(CAT_CONTACT,  bmsinvdiff,  "V",       0,      100,    0,     106 ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "rpm",     0,      10000,  900,    90  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "rpm",     0,      10000,  500,    91  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
-    PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
-    PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
+    PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      1024,   1000,   1   ) \
+    PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   -1024,  1024,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    intempofs,   "dig",     0,      4095,  1700,    104 ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
@@ -60,7 +58,7 @@
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2086 ) \
-    VALUE_ENTRY(invmode,      OPMODES, 2000 ) \
+    VALUE_ENTRY(invmode,      INVMODES,2000 ) \
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(cdmcureq,     "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
@@ -86,6 +84,7 @@
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
     VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
+    VALUE_ENTRY(drivesel,     "dig",   2091 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
@@ -123,10 +122,11 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2091
+//Next value Id: 2092
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
+#define INVMODES     "0=Off, 1=Run, 2=ManualRun, 3=Charge"
 #define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define ONOFFFORCE   "0=Off, 1=On, 2=Force"
@@ -150,6 +150,7 @@
 
 #define CAN_PERIOD_100MS    0
 #define CAN_PERIOD_10MS     1
+#define INVMOD_CHARGE       3
 
 enum modes
 {
