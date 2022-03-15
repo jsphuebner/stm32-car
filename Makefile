@@ -37,7 +37,7 @@ CPPFLAGS    = -O0 -g3 -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJSL		= $(BINARY).o hwinit.o stm32scheduler.o params.o terminal.o terminal_prj.o \
-           my_string.o digio.o my_fp.o printf.o anain.o leafbms.o \
+           my_string.o digio.o my_fp.o printf.o anain.o leafbms.o linbus.o \
            param_save.o errormessage.o stm32_can.o chademo.o terminalcommands.o
 OBJS     = $(patsubst %.o,$(OUT_DIR)/%.o, $(OBJSL))
 vpath %.c src/ libopeninv/src/

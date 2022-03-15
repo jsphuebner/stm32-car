@@ -71,6 +71,7 @@
     VALUE_ENTRY(udcinv,       "V",     2001 ) \
     VALUE_ENTRY(udcbms,       "V",     2048 ) \
     VALUE_ENTRY(udccdm,       "V",     2068 ) \
+    VALUE_ENTRY(udcompressor, "V",     2093 ) \
     VALUE_ENTRY(chglim,       "kW",    2049 ) \
     VALUE_ENTRY(dislim,       "kW",    2050 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
@@ -85,6 +86,7 @@
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
     VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
     VALUE_ENTRY(drivesel,     "dig",   2091 ) \
+    VALUE_ENTRY(invdir,        DIRS,   2092 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
@@ -122,12 +124,12 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2092
+//Next value Id: 2094
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
 #define INVMODES     "0=Off, 1=Run, 2=ManualRun, 3=Charge"
-#define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
+#define DIRS         "0=Neutral, 1=Reverse, 3=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define ONOFFFORCE   "0=Off, 1=On, 2=Force"
 #define OKERR        "0=Error, 1=Ok, 2=na"
@@ -176,6 +178,15 @@ enum onoffforce
    CMD_OFF = 0,
    CMD_ON = 1,
    CMD_FORCE = 2
+};
+
+//2 bit encoding from inverter and forward reverse swapped
+//-1 becomes 3 (two's complement)
+enum directions
+{
+   DIR_NEUTRAL = 0,
+   DIR_REVERSE = 1,
+   DIR_FORWARD = 3
 };
 
 enum _canio

@@ -38,6 +38,8 @@
 #include "stm32scheduler.h"
 #include "leafbms.h"
 #include "chademo.h"
+#include "linbus.h"
+#include "my_string.h"
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
@@ -49,7 +51,7 @@ HWREV hwRev; //Hardware variant of board we are running on
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static Can* can;
-static int ignitionTimeout = 0;
+static LinBus* lin;
 
 static void Ms500Task(void)
 {
@@ -285,6 +287,46 @@ static void SetFuelGauge()
    timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
 }
 
+static void RunLin()
+{
+   static int state = 0;
+   uint8_t data[8] = { 0xb3, 0x05, 0x00, 0x90, 0xff, 0x00, 0x00, 0x00 };
+
+   if (lin->HasReceived(33, 8))
+   {
+      uint8_t* data = lin->GetReceivedBytes();
+
+      Param::SetInt(Param::udcompressor, data[7] * 2);
+   }
+
+   switch (state)
+   {
+   case 0:
+      lin->Request(17, 0, 0);
+      break;
+   case 1:
+      lin->Request(33, 0, 0);
+      break;
+   case 2:
+      lin->Request(35, 0, 0);
+      break;
+   case 3:
+      lin->Request(38, 0, 0);
+      break;
+   case 4:
+      memset32((int*)data, 0, 2);
+      data[0] = 1;
+      lin->Request(32, data, 8);
+      break;
+   case 5:
+      lin->Request(59, data, 8);
+      break;
+   }
+
+   state = (state + 1) % 6;
+}
+
+
 static void Ms100Task(void)
 {
    DigIo::led_out.Toggle();
@@ -305,6 +347,7 @@ static void Ms100Task(void)
 
    ProcessCruiseControlButtons();
    RunChaDeMo();
+   RunLin();
 
    bool start = Param::GetInt(Param::invmode) == MOD_OFF;
    start &= Param::GetInt(Param::udcinv) >= (Param::GetInt(Param::udcbms) - 10);
@@ -319,7 +362,24 @@ static void Ms100Task(void)
 
 static void GetDigInputs()
 {
+   int drivesel = AnaIn::drivesel.Get();
    int canio = 0;
+
+   if (drivesel > 2500 && drivesel < 3500)
+   {
+      Param::SetInt(Param::din_forward, 1);
+   }
+   else if (drivesel > 1500 && drivesel < 2400)
+   {
+      Param::SetInt(Param::din_reverse, 1);
+      Param::SetInt(Param::din_bms, 1);
+   }
+   else
+   {
+      Param::SetInt(Param::din_forward, 0);
+      Param::SetInt(Param::din_reverse, 0);
+      Param::SetInt(Param::din_bms, 0);
+   }
 
    if (Param::GetBool(Param::din_cruise))
       canio |= CAN_IO_CRUISE;
@@ -335,6 +395,7 @@ static void GetDigInputs()
       canio |= CAN_IO_BMS;
 
    Param::SetInt(Param::canio, canio);
+   Param::SetInt(Param::drivesel, drivesel);
 }
 
 static void TractionControl(s32fp& throtmin, s32fp& throtmax)
@@ -366,14 +427,13 @@ static void ProcessThrottle()
 {
    int pot1 = AnaIn::throttle1.Get();
    int pot2 = AnaIn::throttle2.Get();
-   int drivesel = AnaIn::drivesel.Get();
    int brakePressure = Param::GetInt(Param::brakepressure);
    int offPedalRegen = Param::GetInt(Param::regenlevel) * 60;
 
    brakePressure = MAX(offPedalRegen, brakePressure);
    brakePressure = MIN(255, brakePressure);
 
-   /* hard coded throttle redundance */
+   /* hard coded throttle redundancy */
    if (pot2 > 50)
    {
       pot1 = MIN(pot1, pot2 * 2);
@@ -385,7 +445,6 @@ static void ProcessThrottle()
    Param::SetInt(Param::pot, pot1);
    Param::SetInt(Param::pot2, pot2);
    Param::SetInt(Param::potbrake, brakePressure);
-   Param::SetInt(Param::drivesel, drivesel);
 }
 
 static void LimitThrottle()
@@ -450,7 +509,7 @@ static void SetRevCounter()
    static int regenLevelLast = 0;
    int regenLevel = Param::GetInt(Param::regenlevel);
 
-   if (1)
+   if (Param::GetInt(Param::invmode) != MOD_RUN || Param::GetInt(Param::invdir) == DIR_NEUTRAL)
    {
       DigIo::oilpres_out.Clear();
       Param::SetInt(Param::speedmod, 0);
@@ -467,7 +526,7 @@ static void SetRevCounter()
    else
    {
       DigIo::oilpres_out.Set();
-      Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
+      Param::SetInt(Param::speedmod, 4000 - Param::GetInt(Param::idc) * 10);
    }
 
    regenLevelLast = regenLevel;
@@ -520,7 +579,7 @@ static void Ms10Task(void)
    SimulateOilSensor();
    SetRevCounter();
 
-   if (Param::GetInt(Param::heatcmd) == CMD_FORCE)
+   if (Param::GetInt(Param::invdir) == DIR_REVERSE)
    {
       DigIo::rev_out.Set();
    }
@@ -596,7 +655,6 @@ static void CanCallback(uint32_t id, uint32_t data[2])
       break;
    case 0x420:
       Param::SetFlt(Param::tmpaux, FP_FROMINT((((data[0] >> 8) & 0xFF) - 100)) / 2);
-      ignitionTimeout = 10;
       break;
    default:
       LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
@@ -629,6 +687,7 @@ extern "C" int main(void)
    nvic_setup();
    parm_load();
 
+   LinBus l(USART1, 19200);
    Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
 
    c.SetNodeId(2);
@@ -644,6 +703,7 @@ extern "C" int main(void)
    c.RegisterUserMessage(0x420);
 
    can = &c;
+   lin = &l;
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;

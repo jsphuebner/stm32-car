@@ -51,12 +51,12 @@ void clock_setup(void)
    rcc_periph_clock_enable(RCC_GPIOB);
    rcc_periph_clock_enable(RCC_GPIOC);
    rcc_periph_clock_enable(RCC_GPIOD);
+   rcc_periph_clock_enable(RCC_USART1);
    rcc_periph_clock_enable(RCC_USART3);
-   rcc_periph_clock_enable(RCC_TIM1); //Main PWM
    rcc_periph_clock_enable(RCC_TIM2); //Scheduler
    rcc_periph_clock_enable(RCC_TIM3); //Rotor Encoder
    rcc_periph_clock_enable(RCC_TIM4); //Overcurrent / AUX PWM
-   rcc_periph_clock_enable(RCC_DMA1);  //ADC, Encoder and UART receive
+   rcc_periph_clock_enable(RCC_DMA1);  //ADC, Encoder and UARTs
    rcc_periph_clock_enable(RCC_ADC1);
    rcc_periph_clock_enable(RCC_CRC);
    rcc_periph_clock_enable(RCC_AFIO); //CAN
