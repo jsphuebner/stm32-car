@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.14.R-Fenix
+#define VER 1.15.R-Fenix
 
 
 /* Entries must be ordered as follows:
@@ -50,6 +50,7 @@
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
+    PARAM_ENTRY(CAT_GAUGE,    revtest,     "HZ",      1,      1000,   1,      0   ) \
     PARAM_ENTRY(CAT_AVAS,     avasfrq,     "Hz",      0,      65535,  40000,  104 ) \
     PARAM_ENTRY(CAT_AVAS,     avasfac,     "",        0,      1000,   0,      105 ) \
     PARAM_ENTRY(CAT_AVAS,     avasdc,      "%",       0,      65535,  20000,  106 ) \

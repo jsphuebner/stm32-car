@@ -544,6 +544,19 @@ static void Ms10Task(void)
       can->SendAll();
 }
 
+void Ms1Task()
+{
+   int ctr = 0;
+
+   if (ctr == 0)
+   {
+      DigIo::speed_out.Toggle();
+      ctr = Param::GetInt(Param::revtest);
+   }
+
+   ctr--;
+}
+
 /** This function is called when the user changes a parameter */
 extern void parm_Change(Param::PARAM_NUM paramNum)
 {
@@ -621,7 +634,8 @@ extern "C" int main(void)
 
    Terminal t(USART3, termCmds);
 
-   s.AddTask(Ms10Task, 20);
+   //s.AddTask(Ms1Task, 1);
+   s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
