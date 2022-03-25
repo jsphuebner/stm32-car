@@ -336,14 +336,10 @@ static void Ms100Task(void)
 
    ProcessCruiseControlButtons();
    RunChaDeMo();
+   SetFuelGauge();
 
-   if (!chargeMode && rtc_get_counter_val() > 100)
-   {
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
-         can->SendAll();
-      //SendVAG100msMessage();
-      SetFuelGauge();
-   }
+   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
+      can->SendAll();
 }
 
 static void GetDigInputs()
@@ -546,7 +542,7 @@ static void Ms10Task(void)
 
 void Ms1Task()
 {
-   int ctr = 0;
+   static int ctr = 0;
 
    if (ctr == 0)
    {
@@ -634,7 +630,7 @@ extern "C" int main(void)
 
    Terminal t(USART3, termCmds);
 
-   //s.AddTask(Ms1Task, 1);
+   s.AddTask(Ms1Task, 1);
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
