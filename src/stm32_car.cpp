@@ -53,43 +53,6 @@ static bool chargeMode = false;
 static Can* can;
 static LinBus* lin;
 
-static void Ms500Task(void)
-{
-   static modes modeLast = MOD_OFF;
-   static int blinks = 0;
-   static int regenLevelLast = 0;
-   modes mode = (modes)Param::GetInt(Param::opmode);
-   bool cruiseLight = Param::GetBool(Param::cruiselight);
-   int regenLevel = Param::GetInt(Param::regenlevel);
-
-   if (mode == MOD_RUN && modeLast == MOD_OFF)
-   {
-      blinks = 10;
-   }
-   if (blinks > 0)
-   {
-      blinks--;
-      Param::SetInt(Param::cruiselight, !cruiseLight);
-   }
-   else if (Param::GetInt(Param::cruisespeed) > 0)
-   {
-      Param::SetInt(Param::cruiselight, 1);
-   }
-   else
-   {
-      Param::SetInt(Param::cruiselight, 0);
-      //Signal regen level by number of blinks + 1
-      if (mode == MOD_RUN && regenLevel != regenLevelLast)
-      {
-
-         blinks = 2 * (regenLevel + 1);
-      }
-   }
-
-   regenLevelLast = Param::GetInt(Param::regenlevel);
-   modeLast = mode;
-}
-
 static void ProcessCruiseControlButtons()
 {
    static bool transition = false;
@@ -111,25 +74,6 @@ static void ProcessCruiseControlButtons()
       {
          transition = true;
       }
-   }
-
-   //When pressing cruise control buttons and brake pedal
-   //Use them to adjust regen level
-   if (Param::GetBool(Param::din_brake))
-   {
-      int regenLevel = Param::GetInt(Param::regenlevel);
-      if (cruisestt & CRUISE_SETP)
-      {
-         regenLevel++;
-         regenLevel = MIN(3, regenLevel);
-      }
-      else if (cruisestt & CRUISE_SETN)
-      {
-         regenLevel--;
-         regenLevel = MAX(0, regenLevel);
-      }
-
-      Param::SetInt(Param::regenlevel, regenLevel);
    }
 
    if (cruisestt & CRUISE_ON && Param::GetInt(Param::opmode) == MOD_RUN)
@@ -166,6 +110,19 @@ static void ProcessCruiseControlButtons()
    }
    else
    {
+      int regenLevel = Param::GetInt(Param::regenlevel);
+      if (cruisestt & CRUISE_SETP)
+      {
+         regenLevel++;
+         regenLevel = MIN(3, regenLevel);
+      }
+      else if (cruisestt & CRUISE_SETN)
+      {
+         regenLevel--;
+         regenLevel = MAX(0, regenLevel);
+      }
+
+      Param::SetInt(Param::regenlevel, regenLevel);
       cruisespeed = 0;
       cruiseTarget = 0;
    }
@@ -350,7 +307,7 @@ static void Ms100Task(void)
    RunLin();
 
    bool start = Param::GetInt(Param::invmode) == MOD_OFF;
-   start &= Param::GetInt(Param::udcinv) >= (Param::GetInt(Param::udcbms) - 10);
+   start &= Param::GetInt(Param::udcinv) >= (Param::GetInt(Param::udcbms) - Param::GetInt(Param::bmsinvdiff));
 
    Param::SetInt(Param::din_start, start);
 
@@ -363,22 +320,37 @@ static void Ms100Task(void)
 static void GetDigInputs()
 {
    int drivesel = AnaIn::drivesel.Get();
+   int invdir = Param::GetInt(Param::invdir);
    int canio = 0;
 
    if (drivesel > 2500 && drivesel < 3500)
    {
-      Param::SetInt(Param::din_forward, 1);
+      if (invdir == DIR_FORWARD)
+      {
+         Param::SetInt(Param::cruisestt, CRUISE_SETP);
+      }
+      else if (Param::GetBool(Param::din_brake) || invdir == DIR_REVERSE)
+      {
+         Param::SetInt(Param::din_reverse, 0);
+         Param::SetInt(Param::din_bms, 0);
+         Param::SetInt(Param::din_forward, 1);
+      }
    }
-   else if (drivesel > 1500 && drivesel < 2400)
+   else if (drivesel > 1500 && drivesel < 2400 && Param::GetBool(Param::din_brake))
    {
+      Param::SetInt(Param::din_forward, 0);
       Param::SetInt(Param::din_reverse, 1);
       Param::SetInt(Param::din_bms, 1);
+   }
+   else if (drivesel > 500 && drivesel < 1400)
+   {
+      Param::SetInt(Param::cruisestt, CRUISE_SETN);
    }
    else
    {
       Param::SetInt(Param::din_forward, 0);
       Param::SetInt(Param::din_reverse, 0);
-      Param::SetInt(Param::din_bms, 0);
+      Param::SetInt(Param::cruisestt, 0);
    }
 
    if (Param::GetBool(Param::din_cruise))
@@ -526,7 +498,7 @@ static void SetRevCounter()
    else
    {
       DigIo::oilpres_out.Set();
-      Param::SetInt(Param::speedmod, 4000 - Param::GetInt(Param::idc) * 10);
+      Param::SetInt(Param::speedmod, 3000 - Param::GetInt(Param::idc) * 10);
    }
 
    regenLevelLast = regenLevel;
@@ -588,6 +560,15 @@ static void Ms10Task(void)
       DigIo::rev_out.Clear();
    }
 
+   if (Param::GetInt(Param::invdir) == DIR_FORWARD)
+   {
+      DigIo::fwd_out.Set();
+   }
+   else
+   {
+      DigIo::fwd_out.Clear();
+   }
+
    if (invmode == MOD_RUN)
    {
       if (vacuum > vacuumthresh)
@@ -619,7 +600,7 @@ static void Ms10Task(void)
    LimitThrottle();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
-   Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
+   //Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
 
@@ -712,7 +693,6 @@ extern "C" int main(void)
 
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
-   s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS

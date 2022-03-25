@@ -118,8 +118,6 @@
     VALUE_ENTRY(din_reverse,  ONOFF,   2028 ) \
     VALUE_ENTRY(din_bms,      ONOFF,   2032 ) \
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
-    VALUE_ENTRY(din_charge,   ONOFF,   2087 ) \
-    VALUE_ENTRY(dout_dcsw,    ONOFF,   2090 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
@@ -129,7 +127,7 @@
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
 #define INVMODES     "0=Off, 1=Run, 2=ManualRun, 3=Charge"
-#define DIRS         "0=Neutral, 1=Reverse, 3=Forward"
+#define DIRS         "0=Neutral, 1=Forward, 3=Reverse"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define ONOFFFORCE   "0=Off, 1=On, 2=Force"
 #define OKERR        "0=Error, 1=Ok, 2=na"
@@ -180,13 +178,12 @@ enum onoffforce
    CMD_FORCE = 2
 };
 
-//2 bit encoding from inverter and forward reverse swapped
-//-1 becomes 3 (two's complement)
+//2 bit encoding from inverter -1 becomes 3 (two's complement)
 enum directions
 {
    DIR_NEUTRAL = 0,
-   DIR_REVERSE = 1,
-   DIR_FORWARD = 3
+   DIR_FORWARD = 1,
+   DIR_REVERSE = 3
 };
 
 enum _canio
