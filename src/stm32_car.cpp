@@ -46,8 +46,6 @@
 #define PRECHARGE_TIMEOUT 500 //5s
 #define CAN_TIMEOUT       50  //500ms
 
-HWREV hwRev; //Hardware variant of board we are running on
-
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static Can* can;
@@ -228,7 +226,8 @@ static void SendVAG100msMessage()
 
 static void SetFuelGauge()
 {
-   int dcoffset = Param::GetInt(Param::gaugeoffset);
+   int counts = Param::GetInt(Param::gaugefrq);
+   s32fp dcoffset = Param::Get(Param::gaugeoffset);
    //int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
    int soctest = Param::GetInt(Param::soctest);
@@ -237,9 +236,15 @@ static void SetFuelGauge()
    soc -= Param::GetInt(Param::gaugebalance);
    //Temperature compensation 1 digit per degree
    //dcoffset -= tmpaux;
-   int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
-   int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
+   int dc1 = FP_TOINT(dcgain * soc + dcoffset);
+   int dc2 = FP_TOINT(-dcgain * soc + dcoffset);
 
+   dc1 *= counts;
+   dc2 *= counts;
+   dc1 /= 1000;
+   dc2 /= 1000;
+
+   timer_set_period(FUELGAUGE_TIMER, counts);
    timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc1);
    timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
 }
@@ -697,6 +702,7 @@ extern "C" int main(void)
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
    Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
+   Param::SetInt(Param::soc, 100); //Preload SoC for proper fuel gauge display
 
    while(1)
       t.Run();
