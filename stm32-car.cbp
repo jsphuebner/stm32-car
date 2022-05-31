@@ -68,6 +68,7 @@
 		<Unit filename="libopeninv/include/printf.h" />
 		<Unit filename="libopeninv/include/sine_core.h" />
 		<Unit filename="libopeninv/include/stm32_can.h" />
+		<Unit filename="libopeninv/include/stm32_loader.h" />
 		<Unit filename="libopeninv/include/stm32scheduler.h" />
 		<Unit filename="libopeninv/include/terminal.h" />
 		<Unit filename="libopeninv/include/terminalcommands.h" />

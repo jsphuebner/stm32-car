@@ -55,43 +55,6 @@ static bool chargeMode = false;
 static Can* can;
 static LinBus* lin;
 
-static void Ms500Task(void)
-{
-   static modes modeLast = MOD_OFF;
-   static int blinks = 0;
-   static int regenLevelLast = 0;
-   modes mode = (modes)Param::GetInt(Param::opmode);
-   bool cruiseLight = Param::GetBool(Param::cruiselight);
-   int regenLevel = Param::GetInt(Param::regenlevel);
-
-   if (mode == MOD_RUN && modeLast == MOD_OFF)
-   {
-      blinks = 10;
-   }
-   if (blinks > 0)
-   {
-      blinks--;
-      Param::SetInt(Param::cruiselight, !cruiseLight);
-   }
-   else if (Param::GetInt(Param::cruisespeed) > 0)
-   {
-      Param::SetInt(Param::cruiselight, 1);
-   }
-   else
-   {
-      Param::SetInt(Param::cruiselight, 0);
-      //Signal regen level by number of blinks + 1
-      if (mode == MOD_RUN && regenLevel != regenLevelLast)
-      {
-
-         blinks = 2 * (regenLevel + 1);
-      }
-   }
-
-   regenLevelLast = Param::GetInt(Param::regenlevel);
-   modeLast = mode;
-}
-
 static void SendLin()
 {
    static bool read = true;
@@ -115,7 +78,7 @@ static void SendLin()
       lindata[0] = Param::GetInt(Param::heatpowmax) / 40;
       lindata[1] = Param::GetInt(Param::heatmax) + 40;
       lindata[2] = 0;
-      lindata[3] = Param::GetInt(Param::heatpowmax) > 0 ? 8 : 0;
+      lindata[3] = Param::GetInt(Param::opmode) == MOD_RUN ? 8 : 0;
 
       lin->Request(21, lindata, sizeof(lindata));
    }
@@ -221,32 +184,24 @@ static void ProcessCruiseControlButtons()
 
 static void RunChaDeMo()
 {
-   static uint32_t connectorLockTime = 0;
-
-   if (DigIo::charge_in.Get() && !chargeMode)
+   if (rtc_get_counter_val() > 200 && DigIo::charge_in.Get() && !chargeMode)
    {
       chargeMode = true;
       Param::SetInt(Param::opmode, MOD_CHARGESTART);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
    }
 
    /* 1s after entering charge mode, enable charge permission */
    if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && rtc_get_counter_val() > 200 && DigIo::dcsw_out.Get())
    {
       ChaDeMo::SetEnabled(true);
-      //Use fuel gauge line to control charge enable signal
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, GAUGEMAX);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
    }
 
-   if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
+   if (ChaDeMo::ConnectorLocked())
    {
-      connectorLockTime = rtc_get_counter_val();
       Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
    //10s after locking tell EVSE that we closed the contactor (in fact we have no control)
-   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && (rtc_get_counter_val() - connectorLockTime) > 1000 && DigIo::dcsw_out.Get())
+   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK && DigIo::dcsw_out.Get())
    {
       ChaDeMo::SetContactor(true);
       Param::SetInt(Param::opmode, MOD_CHARGE);
@@ -282,8 +237,6 @@ static void RunChaDeMo()
             ChaDeMo::SetGeneralFault();
          }
          ChaDeMo::SetEnabled(false);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
@@ -301,19 +254,13 @@ static void RunChaDeMo()
 static void SetFuelGauge()
 {
    int dcoffset = Param::GetInt(Param::gaugeoffset);
-   int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
    int soctest = Param::GetInt(Param::soctest);
    int soc = Param::GetInt(Param::soc);
    soc = soctest != 0 ? soctest : soc;
-   soc -= Param::GetInt(Param::gaugebalance);
-   //Temperature compensation 1 digit per degree
-   dcoffset -= tmpaux;
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
-   int dc2 = FP_TOINT(-dcgain * soc) + dcoffset;
 
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc1);
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC4, dc1);
 }
 
 static void Ms100Task(void)
@@ -337,6 +284,7 @@ static void Ms100Task(void)
    ProcessCruiseControlButtons();
    RunChaDeMo();
    SetFuelGauge();
+   SendLin();
 
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
       can->SendAll();
@@ -387,49 +335,25 @@ static void ProcessThrottle()
 
 static void Ms10Task(void)
 {
-   static int seq1Ctr = 0;
-   static uint16_t consumptionCounter = 0;
-   static uint32_t accumulatedRegen = 0;
-   static int speedTimeout;
    static int dcdcDelay = 100;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
    int opmode = Param::GetInt(Param::opmode);
-   s32fp tmpm = Param::Get(Param::tmpm);
    s32fp idc = Param::Get(Param::idc);
    s32fp udcbms = Param::Get(Param::udcbms);
    s32fp udccdm = Param::Get(Param::udccdm);
    s32fp power = FP_MUL(idc, udcbms) / 1000;
    s32fp dcdcVoltage = 0;
-   int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
-
-   seq1Ctr = (seq1Ctr + 1) & 0x3;
-
-   //Obviously the petrol consumption counter cannot handle
-   //negative values. So we accumulate regen energy and
-   //subtract it from the consumption once we're out of regen
-   if (consumptionIncrement >= 0)
-   {
-      if (accumulatedRegen > (uint32_t)consumptionIncrement)
-      {
-         accumulatedRegen -= consumptionIncrement;
-         consumptionIncrement = 0;
-      }
-      else if (accumulatedRegen > 0) //greater 0 but less then current draw
-      {
-         consumptionIncrement -= accumulatedRegen;
-         accumulatedRegen = 0;
-      }
-      consumptionCounter += consumptionIncrement;
-   }
-   else
-   {
-      accumulatedRegen += -consumptionIncrement;
-   }
 
    Param::SetFlt(Param::power, power);
+
+   if (!DigIo::charge_in.Get())
+   {
+      opmode = Param::GetInt(Param::invmode);
+      Param::SetInt(Param::opmode, opmode);
+   }
 
    if (opmode < MOD_CHARGESTART)
    {
@@ -443,55 +367,22 @@ static void Ms10Task(void)
       }
    }
 
-   if (speed == 0 && opmode == MOD_RUN)
-   {
-      if (speedTimeout > 0)
-      {
-         speedTimeout--;
-      }
-      else if (Param::Get(Param::tmpaux) < Param::Get(Param::heathresh))
-      {
-         s32fp heatmax = Param::Get(Param::heatmax);
-         s32fp heatcur = (heatmax - tmpm) * 50;
-         s32fp heatcurmax = Param::Get(Param::heatpowmax);
-
-         heatcur = MIN(heatcurmax, heatcur);
-         Param::SetFlt(Param::heatcur, heatcur);
-      }
-      else
-      {
-         Param::SetFlt(Param::heatcur, 0);
-      }
-   }
-   else
-   {
-      speedTimeout = 100;
-      Param::SetFlt(Param::heatcur, 0);
-   }
-
-   if (Param::GetBool(Param::dashlight))
-   {
-      DigIo::dash_out.Set();
-   }
-   else
-   {
-      DigIo::dash_out.Clear();
-   }
-
    if (opmode == MOD_OFF)
    {
       //Do not drop DC contactor in off mode because pre-charge
       //is always on and we will burn the precharge resistor
       //because the DC/DC converter still draws power
-      Param::SetInt(Param::speedmod, 0);
+      Param::SetInt(Param::speedmod, 2000);
       dcdcDelay = 100;
       timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
    }
    else if (opmode == MOD_RUN)
    {
+      int speedmod = MAX(700, Param::GetInt(Param::speed));
+      speedmod = Param::GetInt(Param::revmult) / speedmod;
       DigIo::dcsw_out.Set();
       DigIo::dash_out.Set();
-      Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
+      Param::SetInt(Param::speedmod, speedmod);
       Param::SetInt(Param::din_forward, !DigIo::charge_in.Get()); //lock out drive
 
       if (dcdcDelay > 0)
@@ -513,7 +404,7 @@ static void Ms10Task(void)
          timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
       }
    } //In charge mode charger will report DC bus voltage
-   else if (udcbms > 0 && udccdm >= (udcbms - FP_FROMFLT(10)))
+   else if (chargeMode && udcbms > FP_FROMFLT(200) && udccdm >= (udcbms - FP_FROMFLT(10)))
    {
       DigIo::dcsw_out.Set();
    }
@@ -530,7 +421,6 @@ static void Ms10Task(void)
 
    GetDigInputs();
    ProcessThrottle();
-   SendLin();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
 
@@ -540,14 +430,15 @@ static void Ms10Task(void)
       can->SendAll();
 }
 
-void Ms1Task()
+void Task250Us()
 {
    static int ctr = 0;
 
    if (ctr == 0)
    {
       DigIo::speed_out.Toggle();
-      ctr = Param::GetInt(Param::revtest);
+      //Wert von 200 -> 800 rpm
+      ctr = MAX(1, Param::GetInt(Param::speedmod));
    }
 
    ctr--;
@@ -583,6 +474,8 @@ static void ConfigureVariantIO()
 {
    ANA_IN_CONFIGURE(ANA_IN_LIST);
    DIG_IO_CONFIGURE(DIG_IO_LIST);
+
+   DigIo::dcsw_out.Clear();
 
    AnaIn::Start();
 }
@@ -630,16 +523,12 @@ extern "C" int main(void)
 
    Terminal t(USART3, termCmds);
 
-   s.AddTask(Ms1Task, 1);
+   s.AddTask(Task250Us, 1, 25); //250us
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
-   s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //backward compatibility
-   Param::SetInt(Param::dislim, -1);
    parm_Change(Param::PARAM_LAST);
-
-   //extern uint8_t lindata[15];
 
    while(1)
    {

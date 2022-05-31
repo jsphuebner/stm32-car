@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.15.R-Fenix
+#define VER 1.20.R-Fenix
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 108
+//Next param id (increase when adding new parameter!): 109
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -41,8 +41,6 @@
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcthresh,   "V",       0,      500,    380,    92  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
-    PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
-    PARAM_ENTRY(CAT_CONTACT,  dashlight,    ONOFF,     0,      1,      0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    15,     10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatmax,     "°C",      20,     90,     85,     99  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatpowmax,  "W",       0,      7000,   0,     100  ) \
@@ -50,7 +48,8 @@
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
-    PARAM_ENTRY(CAT_GAUGE,    revtest,     "HZ",      1,      1000,   1,      0   ) \
+    PARAM_ENTRY(CAT_GAUGE,    revmult,      "",       0,      999999, 160000, 108 ) \
+    PARAM_ENTRY(CAT_GAUGE,    revtest,      "",       0,      1000, 20, 0 ) \
     PARAM_ENTRY(CAT_AVAS,     avasfrq,     "Hz",      0,      65535,  40000,  104 ) \
     PARAM_ENTRY(CAT_AVAS,     avasfac,     "",        0,      1000,   0,      105 ) \
     PARAM_ENTRY(CAT_AVAS,     avasdc,      "%",       0,      65535,  20000,  106 ) \
@@ -58,7 +57,8 @@
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
-    VALUE_ENTRY(opmode,       OPMODES, 2000 ) \
+    VALUE_ENTRY(opmode,       OPMODES, 2085 ) \
+    VALUE_ENTRY(invmode,      OPMODES, 2000 ) \
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(cdmcureq,    "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
@@ -85,7 +85,7 @@
     VALUE_ENTRY(soc,          "%",     2052 ) \
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
-    VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
+    VALUE_ENTRY(speedmod,     "ms/10", 2013 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
@@ -105,7 +105,6 @@
     VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
-    VALUE_ENTRY(heatcur,      "A",     2073 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
     VALUE_ENTRY(wheelfl,      "km/h",  2060 ) \
     VALUE_ENTRY(wheelfr,      "km/h",  2061 ) \
@@ -126,7 +125,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2085
+//Next value Id: 2086
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
