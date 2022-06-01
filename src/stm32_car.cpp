@@ -260,7 +260,7 @@ static void SetFuelGauge()
    soc = soctest != 0 ? soctest : soc;
    int dc1 = FP_TOINT(dcgain * soc) + dcoffset;
 
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC4, dc1);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC1, dc1);
 }
 
 static void Ms100Task(void)
@@ -355,7 +355,7 @@ static void Ms10Task(void)
       Param::SetInt(Param::opmode, opmode);
    }
 
-   if (opmode < MOD_CHARGESTART)
+   if (opmode == MOD_RUN)
    {
       if (vacuum > vacuumthresh)
       {
@@ -374,12 +374,15 @@ static void Ms10Task(void)
       //because the DC/DC converter still draws power
       Param::SetInt(Param::speedmod, 2000);
       dcdcDelay = 100;
-      timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
+      timer_set_oc_value(AVAS_TIMER, TIM_OC3, 0);
+      DigIo::dash_out.Clear();
    }
    else if (opmode == MOD_RUN)
    {
-      int speedmod = MAX(700, Param::GetInt(Param::speed));
+      int speedmod = MAX(700, speed);
       speedmod = Param::GetInt(Param::revmult) / speedmod;
+      timer_set_period(REV_CNT_TIMER, speedmod);
+      timer_set_oc_value(REV_CNT_TIMER, TIM_OC4, speedmod / 2);
       DigIo::dcsw_out.Set();
       DigIo::dash_out.Set();
       Param::SetInt(Param::speedmod, speedmod);
@@ -394,14 +397,14 @@ static void Ms10Task(void)
          dcdcVoltage = Param::Get(Param::udcdc);
       }
 
-      if (speed < Param::GetInt(Param::avasstop))
+      if (speed < Param::GetInt(Param::avasstop) && speed > 50)
       {
-         timer_set_oc_value(PWM_TIMER, TIM_OC3, Param::GetInt(Param::avasdc));
-         timer_set_period(PWM_TIMER, Param::GetInt(Param::avasfrq));
+         timer_set_oc_value(AVAS_TIMER, TIM_OC3, Param::GetInt(Param::avasdc) / speed);
+         timer_set_period(AVAS_TIMER, Param::GetInt(Param::avasfrq) / speed);
       }
       else
       {
-         timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
+         timer_set_oc_value(AVAS_TIMER, TIM_OC3, 0);
       }
    } //In charge mode charger will report DC bus voltage
    else if (chargeMode && udcbms > FP_FROMFLT(200) && udccdm >= (udcbms - FP_FROMFLT(10)))
@@ -428,20 +431,6 @@ static void Ms10Task(void)
 
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
       can->SendAll();
-}
-
-void Task250Us()
-{
-   static int ctr = 0;
-
-   if (ctr == 0)
-   {
-      DigIo::speed_out.Toggle();
-      //Wert von 200 -> 800 rpm
-      ctr = MAX(1, Param::GetInt(Param::speedmod));
-   }
-
-   ctr--;
 }
 
 /** This function is called when the user changes a parameter */
@@ -523,7 +512,6 @@ extern "C" int main(void)
 
    Terminal t(USART3, termCmds);
 
-   s.AddTask(Task250Us, 1, 25); //250us
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
 

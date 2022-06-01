@@ -109,23 +109,8 @@ void write_bootloader_pininit()
 */
 void nvic_setup(void)
 {
-   nvic_enable_irq(PWM_TIMER_IRQ); //Main PWM
-   nvic_set_priority(PWM_TIMER_IRQ, 1 << 4); //Set second-highest priority
-
-   nvic_enable_irq(NVIC_TIM1_BRK_IRQ); //Emergency shut down
-   nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0); //Highest priority
-
-   nvic_enable_irq(NVIC_EXTI2_IRQ); //Encoder Index pulse
-   nvic_set_priority(NVIC_EXTI2_IRQ, 0); //Set highest priority
-
    nvic_enable_irq(NVIC_TIM2_IRQ); //Scheduler
    nvic_set_priority(NVIC_TIM2_IRQ, 0xe << 4); //second lowest priority
-
-	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
-	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
-
-	nvic_enable_irq(NVIC_USB_HP_CAN_TX_IRQ); //CAN TX
-	nvic_set_priority(NVIC_USB_HP_CAN_TX_IRQ, 0xf << 4); //lowest priority
 }
 
 void rtc_setup()
@@ -142,25 +127,16 @@ void rtc_setup()
 */
 void tim_setup()
 {
-   /*** Setup over/undercurrent and PWM output timer */
+   /* timer for fuel gauge */
    timer_disable_counter(FUELGAUGE_TIMER);
    //edge aligned PWM
    timer_set_alignment(FUELGAUGE_TIMER, TIM_CR1_CMS_EDGE);
    timer_enable_preload(FUELGAUGE_TIMER);
    /* PWM mode 1 and preload enable */
-   timer_set_oc_mode(FUELGAUGE_TIMER, TIM_OC2, TIM_OCM_PWM1);
-   timer_set_oc_mode(FUELGAUGE_TIMER, TIM_OC3, TIM_OCM_PWM1);
-   //timer_set_oc_mode(FUELGAUGE_TIMER, TIM_OC4, TIM_OCM_PWM1);
-   timer_enable_oc_preload(FUELGAUGE_TIMER, TIM_OC2);
-   timer_enable_oc_preload(FUELGAUGE_TIMER, TIM_OC3);
-   //timer_enable_oc_preload(FUELGAUGE_TIMER, TIM_OC4);
-
-   timer_set_oc_polarity_high(FUELGAUGE_TIMER, TIM_OC2);
-   timer_set_oc_polarity_high(FUELGAUGE_TIMER, TIM_OC3);
-   //timer_set_oc_polarity_high(FUELGAUGE_TIMER, TIM_OC4);
-   timer_enable_oc_output(FUELGAUGE_TIMER, TIM_OC2);
-   timer_enable_oc_output(FUELGAUGE_TIMER, TIM_OC3);
-   //timer_enable_oc_output(FUELGAUGE_TIMER, TIM_OC4);
+   timer_set_oc_mode(FUELGAUGE_TIMER, TIM_OC1, TIM_OCM_PWM1);
+   timer_enable_oc_preload(FUELGAUGE_TIMER, TIM_OC1);
+   timer_set_oc_polarity_high(FUELGAUGE_TIMER, TIM_OC1);
+   timer_enable_oc_output(FUELGAUGE_TIMER, TIM_OC1);
    timer_generate_event(FUELGAUGE_TIMER, TIM_EGR_UG);
    timer_set_prescaler(FUELGAUGE_TIMER, 0);
    /* PWM frequency */
@@ -168,30 +144,37 @@ void tim_setup()
    timer_enable_counter(FUELGAUGE_TIMER);
 
    /** setup gpio */
-   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO7 | GPIO8 /*| GPIO9*/);
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO6);
 
-   /* Timer 1 for AVAS */
-   timer_set_alignment(PWM_TIMER, TIM_CR1_CMS_CENTER_1);
-   timer_enable_preload(PWM_TIMER);
+   /* Timer for AVAS */
+   timer_set_alignment(AVAS_TIMER, TIM_CR1_CMS_EDGE);
+   timer_enable_preload(AVAS_TIMER);
+   timer_enable_oc_preload(AVAS_TIMER, TIM_OC3);
+   timer_set_oc_mode(AVAS_TIMER, TIM_OC3, TIM_OCM_PWM1);
+   timer_set_oc_idle_state_unset(AVAS_TIMER, TIM_OC3);
+   timer_enable_oc_output(AVAS_TIMER, TIM_OC3N); //AVAS
+   timer_set_oc_polarity_low(AVAS_TIMER, TIM_OC3N);
+   timer_set_prescaler(AVAS_TIMER, 10);
+   timer_set_period(AVAS_TIMER, 40000);
+   timer_set_repetition_counter(AVAS_TIMER, 1);
+   timer_generate_event(AVAS_TIMER, TIM_EGR_UG);
+   timer_enable_counter(AVAS_TIMER);
+   timer_enable_break_main_output(AVAS_TIMER);
 
-   timer_enable_oc_preload(PWM_TIMER, TIM_OC3);
-   timer_set_oc_mode(PWM_TIMER, TIM_OC3, TIM_OCM_PWM1);
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC3);
-   timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC3N);
+   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO15);
 
-   timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3N);
-   timer_set_prescaler(PWM_TIMER, 10);
+   /* Timer for Rev Counter */
+   timer_set_alignment(REV_CNT_TIMER, TIM_CR1_CMS_EDGE);
+   timer_enable_preload(REV_CNT_TIMER);
+   timer_enable_oc_preload(REV_CNT_TIMER, TIM_OC4);
+   timer_set_oc_mode(REV_CNT_TIMER, TIM_OC4, TIM_OCM_PWM1);
+   timer_enable_oc_output(REV_CNT_TIMER, TIM_OC4); //Rev counter
+   timer_set_oc_polarity_high(REV_CNT_TIMER, TIM_OC4);
+   timer_set_prescaler(REV_CNT_TIMER, 719); //100 kHz base frequency
+   timer_set_period(REV_CNT_TIMER, 40000);
+   timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
+   timer_enable_counter(REV_CNT_TIMER);
 
-   /* PWM frequency */
-   timer_set_period(PWM_TIMER, 40000);
-   timer_set_repetition_counter(PWM_TIMER, 1);
-
-   timer_generate_event(PWM_TIMER, TIM_EGR_UG);
-
-   timer_enable_counter(PWM_TIMER);
-   timer_enable_break_main_output(PWM_TIMER);
-
-   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15);
+   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO9);
 }
 

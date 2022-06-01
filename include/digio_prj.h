@@ -13,7 +13,7 @@
     DIG_IO_ENTRY(emcystop_in, GPIOC, GPIO7,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(charge_in,   GPIOC, GPIO8,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(dcsw_out,    GPIOC, GPIO13, PinMode::OUTPUT)      \
-    DIG_IO_ENTRY(vacuum_out,  GPIOB, GPIO9,  PinMode::OUTPUT)      \
+    DIG_IO_ENTRY(vacuum_out,  GPIOB, GPIO1,  PinMode::OUTPUT)      \
     DIG_IO_ENTRY(led_out,     GPIOC, GPIO12, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(dash_out,    GPIOC, GPIO10, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(speed_out,   GPIOC, GPIO5,  PinMode::OUTPUT)      \

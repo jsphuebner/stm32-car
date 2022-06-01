@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.20.R-Fenix
+#define VER 1.21.R-Fenix
 
 
 /* Entries must be ordered as follows:
@@ -48,11 +48,9 @@
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
-    PARAM_ENTRY(CAT_GAUGE,    revmult,      "",       0,      999999, 160000, 108 ) \
-    PARAM_ENTRY(CAT_GAUGE,    revtest,      "",       0,      1000, 20, 0 ) \
-    PARAM_ENTRY(CAT_AVAS,     avasfrq,     "Hz",      0,      65535,  40000,  104 ) \
-    PARAM_ENTRY(CAT_AVAS,     avasfac,     "",        0,      1000,   0,      105 ) \
-    PARAM_ENTRY(CAT_AVAS,     avasdc,      "%",       0,      65535,  20000,  106 ) \
+    PARAM_ENTRY(CAT_GAUGE,    revmult,      "",       0,      9999999,1515000,108 ) \
+    PARAM_ENTRY(CAT_AVAS,     avasfrq,     "Hz",      0,      9999999,40000,  104 ) \
+    PARAM_ENTRY(CAT_AVAS,     avasdc,      "%",       0,      9999999,20000,  106 ) \
     PARAM_ENTRY(CAT_AVAS,     avasstop,    "rpm",     0,      65535,  2000,   107 ) \
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
@@ -106,10 +104,6 @@
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
-    VALUE_ENTRY(wheelfl,      "km/h",  2060 ) \
-    VALUE_ENTRY(wheelfr,      "km/h",  2061 ) \
-    VALUE_ENTRY(wheelrl,      "km/h",  2062 ) \
-    VALUE_ENTRY(wheelrr,      "km/h",  2063 ) \
     VALUE_ENTRY(calcthrotmax, "%",     2064 ) \
     VALUE_ENTRY(calcthrotmin, "%",     2065 ) \
     VALUE_ENTRY(din_cruise,   ONOFF,   2023 ) \

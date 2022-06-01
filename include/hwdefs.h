@@ -13,9 +13,9 @@
 
 #define RCC_CLOCK_SETUP rcc_clock_setup_in_hse_8mhz_out_72mhz
 
-#define PWM_TIMER          TIM1
-#define REV_CNT_TIMER      TIM3
-#define FUELGAUGE_TIMER    TIM4
+#define AVAS_TIMER         TIM1
+#define REV_CNT_TIMER      TIM4
+#define FUELGAUGE_TIMER    TIM3
 
 #define TERM_USART         USART3
 #define TERM_USART_TXPIN   GPIO_USART3_TX
