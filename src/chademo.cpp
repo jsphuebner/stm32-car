@@ -34,10 +34,12 @@ uint8_t ChaDeMo::chargerStatus = 0;
 uint8_t ChaDeMo::soc;
 uint32_t ChaDeMo::vtgTimeout = 0;
 uint32_t ChaDeMo::curTimeout = 0;
+uint32_t ChaDeMo::canTimeout = 0;
 
 void ChaDeMo::Process108Message(uint32_t data[2])
 {
    chargerMaxCurrent = data[0] >> 24;
+   canTimeout = 10;
 }
 
 void ChaDeMo::Process109Message(uint32_t data[2])
@@ -45,6 +47,7 @@ void ChaDeMo::Process109Message(uint32_t data[2])
    chargerOutputVoltage = data[0] >> 8;
    chargerOutputCurrent = data[0] >> 24;
    chargerStatus = (data[1] >> 8) & 0x3F;
+   canTimeout = 10;
 }
 
 void ChaDeMo::SetEnabled(bool enabled)
@@ -92,6 +95,12 @@ void ChaDeMo::CheckSensorDeviation(uint16_t internalVoltage)
    {
       curTimeout = 0;
    }
+}
+
+bool ChaDeMo::IsCanTimeout()
+{
+   if (canTimeout > 0) canTimeout--;
+   return canTimeout == 0;
 }
 
 void ChaDeMo::SendMessages(Can* can)

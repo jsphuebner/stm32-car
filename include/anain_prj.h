@@ -11,7 +11,6 @@
    ANA_IN_ENTRY(throttle2, GPIOC, 0) \
    ANA_IN_ENTRY(vacuum,    GPIOC, 2) \
    ANA_IN_ENTRY(uaux,      GPIOA, 3) \
-   ANA_IN_ENTRY(ugauge,    GPIOA, 5) \
    ANA_IN_ENTRY(tint,      GPIOD, 3) \
 
 #endif // ANAIN_PRJ_H_INCLUDED

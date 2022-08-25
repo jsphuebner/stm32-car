@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.26.R
+#define VER 1.27.R
 
 
 /* Entries must be ordered as follows:
@@ -101,7 +101,6 @@
     VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
-    VALUE_ENTRY(ugauge,       "dig",   3021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \

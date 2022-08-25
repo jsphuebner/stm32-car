@@ -51,6 +51,8 @@ class ChaDeMo
       static uint8_t GetRampedCurrentRequest() { return rampedCurReq; }
       /** Must be called every 100 ms */
       static void CheckSensorDeviation(uint16_t internalVoltage);
+      /** If called 10 times between CAN messages, will return true */
+      static bool IsCanTimeout();
    protected:
 
    private:
@@ -69,6 +71,7 @@ class ChaDeMo
       static uint8_t soc;
       static uint32_t vtgTimeout;
       static uint32_t curTimeout;
+      static uint32_t canTimeout;
 };
 
 #endif // CHADEMO_H

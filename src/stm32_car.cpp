@@ -188,7 +188,7 @@ static void ProcessCruiseControlButtons()
 
 static void RunChaDeMo()
 {
-   static uint32_t connectorLockTime = 0;
+   static uint32_t startTime = 0;
 
    if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
    {
@@ -201,11 +201,24 @@ static void RunChaDeMo()
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
+         startTime = rtc_get_counter_val();
+      }
+   }
+   else if (Param::GetInt(Param::opmode) == MOD_RUN)
+   {
+      if (!ChaDeMo::IsCanTimeout())
+      {
+         chargeMode = true;
+         Param::SetInt(Param::opmode, MOD_CHARGESTART);
+         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
+         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
+         ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
+         startTime = rtc_get_counter_val();
       }
    }
 
    /* 1s after entering charge mode, enable charge permission */
-   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && rtc_get_counter_val() > 200)
+   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && (rtc_get_counter_val() - startTime) > 100)
    {
       ChaDeMo::SetEnabled(true);
       //Use fuel gauge line to control charge enable signal
@@ -213,9 +226,8 @@ static void RunChaDeMo()
       timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
    }
 
-   if (connectorLockTime == 0 && ChaDeMo::ConnectorLocked())
+   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && ChaDeMo::ConnectorLocked())
    {
-      connectorLockTime = rtc_get_counter_val();
       Param::SetInt(Param::opmode, MOD_CHARGELOCK);
    }
    //after locking tell EVSE that we closed the contactor (in fact we have no control)
@@ -335,7 +347,8 @@ static void Ms100Task(void)
       ignitionTimeout--;
    }
    //Car has been turned off, reset inverter bus voltage and state
-   else
+   //Only do this when we are really sure we're not driving
+   else if (Param::GetInt(Param::speed) == 0)
    {
       Param::SetInt(Param::udcinv, 0);
       Param::SetInt(Param::invmode, 0);
@@ -441,7 +454,6 @@ static void Ms10Task(void)
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
    static int dcdcDelay = 100;
-   static int ugaugemax = 0, ugaugesamples = 0, ugaugetimeout = 0;
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
@@ -492,29 +504,6 @@ static void Ms10Task(void)
       DigIo::oil_out.Clear();
    }
 
-   if (ugaugesamples == 100)
-   {
-      if (speed > 10)
-      {
-         ugaugetimeout = 10;
-      }
-      else if (ugaugetimeout > 0)
-      {
-         ugaugetimeout--;
-      }
-      bool charge = ugaugetimeout == 0 && ugaugemax < 100;
-      Param::SetInt(Param::din_charge, charge);
-      Param::SetInt(Param::ugauge, ugaugemax);
-      ugaugesamples = 0;
-      ugaugemax = 0;
-   }
-   else
-   {
-      int val = AnaIn::ugauge.Get();
-      ugaugesamples++;
-      ugaugemax = MAX(val, ugaugemax);
-   }
-
    if (invmode == MOD_RUN)
    {
       if (vacuum > vacuumthresh)
@@ -544,13 +533,10 @@ static void Ms10Task(void)
    }
    else if (chargeMode)
    {
-      DigIo::vacuum_out.Set();
+      DigIo::vacuum_out.Set(); //Turn off vacuum pump
 
-      if (Param::GetInt(Param::udcbms) > 100 &&
-         (Param::Get(Param::udcbms) - Param::Get(Param::udcinv)) < Param::Get(Param::bmsinvdiff))
+      if (DigIo::dcsw_out.Get())
       {
-         DigIo::dcsw_out.Set();
-
          if (dcdcDelay > 0)
          {
             dcdcDelay--;
