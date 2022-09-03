@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.27.R
+#define VER 1.28.R
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 107
+//Next param id (increase when adding new parameter!): 108
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -36,6 +36,7 @@
     PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101 ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    5,      1.1,    4   ) \
     PARAM_ENTRY(CAT_POWER,    chargelimit, "A",       0,      255,    255,    10  ) \
+    PARAM_ENTRY(CAT_POWER,    obclimit,    "A",       0,      255,    12,     107 ) \
     PARAM_ENTRY(CAT_POWER,    soclimit,    "%",       0,      100,    100,    12  ) \
     PARAM_ENTRY(CAT_POWER,    udclimit,    "V",       0,      600,    400,    92  ) \
     PARAM_ENTRY(CAT_POWER,    cdmcheckena, ONOFF,     0,      1,      1,      13  ) \
@@ -73,6 +74,7 @@
     VALUE_ENTRY(udcinv,       "V",     2001 ) \
     VALUE_ENTRY(udcbms,       "V",     2048 ) \
     VALUE_ENTRY(udccdm,       "V",     2068 ) \
+    VALUE_ENTRY(udcobc,       "V",     2091 ) \
     VALUE_ENTRY(chglim,       "kW",    2049 ) \
     VALUE_ENTRY(dislim,       "kW",    2050 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
@@ -123,7 +125,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2091
+//Next value Id: 2092
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"

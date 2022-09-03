@@ -254,18 +254,13 @@ int LeafBMS::GetCellStatus(int idx)
    return -1;
 }
 
-void LeafBMS::Send10msMessages(Can* can, s32fp dcdcVoltage)
+void LeafBMS::Send10msMessages(Can* can)
 {
    uint32_t canData[2] = { 0, 0 };
    int relay = Param::GetInt(Param::opmode) != MOD_OFF;
    int charge = Param::GetInt(Param::opmode) >= MOD_CHARGESTART ? 2 : 0;
    uint8_t crc;
-   uint8_t vtgCmd = FP_TOINT(FP_MUL(FP_FROMFLT(12.7), dcdcVoltage));
-   uint8_t dcdcOn = dcdcVoltage != 0 ? 0xA0 : 0;
 
-   //Unfortunately my DCDC converter uses the same COB ID as the BMS here
-   //so I had to bodge in the control code where it totally doesn't belong
-   canData[0] = dcdcOn | vtgCmd << 8; //DC-DC converter
    canData[1] = run10ms << 6 | 1 << 2 | relay << 14;
    crc = Crc8ForHCM(7, (uint8_t*)canData);
    canData[1] |= crc << 24;

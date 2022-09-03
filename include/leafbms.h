@@ -29,7 +29,7 @@ class LeafBMS
       static void RequestNextFrame(Can* can);
       static uint16_t GetCellVoltage(int idx);
       static int GetCellStatus(int idx);
-      static void Send10msMessages(Can* can, s32fp dcdcVoltage);
+      static void Send10msMessages(Can* can);
       static void Send100msMessages(Can* can);
       static bool Alive(uint32_t time);
       static const int NUMCELLS = 96;

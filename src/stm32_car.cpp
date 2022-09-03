@@ -190,6 +190,8 @@ static void RunChaDeMo()
 {
    static uint32_t startTime = 0;
 
+   if (DigIo::charge_in.Get()) return; //do not run CHAdeMO when OBC is active
+
    if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
    {
       //If 2s after boot we don't see voltage on the fuel sense line
@@ -279,10 +281,6 @@ static void RunChaDeMo()
       ChaDeMo::SendMessages(can);
    }
    Param::SetInt(Param::cdmstatus, ChaDeMo::GetChargerStatus());
-   if (!LeafBMS::Alive(rtc_get_counter_val()))
-   {
-      ErrorMessage::Post(ERR_BMSCOMM);
-   }
 }
 
 static void SendVAG100msMessage()
@@ -361,6 +359,11 @@ static void Ms100Task(void)
       SendVAG100msMessage();
       SetFuelGauge();
    }
+
+   if (!LeafBMS::Alive(rtc_get_counter_val()))
+   {
+      ErrorMessage::Post(ERR_BMSCOMM);
+   }
 }
 
 static void GetDigInputs()
@@ -379,6 +382,8 @@ static void GetDigInputs()
       canio |= CAN_IO_REV;
    if (Param::GetBool(Param::din_bms))
       canio |= CAN_IO_BMS;
+
+   Param::SetInt(Param::din_charge, DigIo::charge_in.Get());
 
    Param::SetInt(Param::canio, canio);
 }
@@ -447,27 +452,16 @@ static void LimitThrottle()
    Param::SetFlt(Param::calcthrotmin, throtmin);
 }
 
-static void Ms10Task(void)
+static void SendVag10MsMessages(s32fp power)
 {
    const uint8_t seq2[] = { 0x10, 0x68, 0x94, 0xC0 };
    static int seq1Ctr = 0;
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
-   static int dcdcDelay = 100;
-   int vacuumthresh = Param::GetInt(Param::vacuumthresh);
-   int vacuumhyst = Param::GetInt(Param::vacuumhyst);
-   int oilthresh = Param::GetInt(Param::oilthresh);
-   int oilhyst = Param::GetInt(Param::oilhyst);
-   int vacuum = AnaIn::vacuum.Get();
-   int speed = Param::GetInt(Param::speed);
-   int invmode = Param::GetInt(Param::invmode);
+   uint32_t canData[2];
+   int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
-   s32fp idc = Param::Get(Param::idc);
-   s32fp udcbms = Param::Get(Param::udcbms);
-   s32fp power = FP_MUL(idc, udcbms) / 1000;
-   s32fp dcdcVoltage = 0;
-   int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
 
    seq1Ctr = (seq1Ctr + 1) & 0x3;
 
@@ -492,6 +486,28 @@ static void Ms10Task(void)
    {
       accumulatedRegen += -consumptionIncrement;
    }
+
+   //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
+   uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
+   canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
+   canData[1] = 0x1A | cruiselight << 18 | check << 24;
+
+   can->Send(0x480, canData);
+}
+
+static void Ms10Task(void)
+{
+   static int dcdcDelay = 100;
+   int vacuumthresh = Param::GetInt(Param::vacuumthresh);
+   int vacuumhyst = Param::GetInt(Param::vacuumhyst);
+   int oilthresh = Param::GetInt(Param::oilthresh);
+   int oilhyst = Param::GetInt(Param::oilhyst);
+   int vacuum = AnaIn::vacuum.Get();
+   int speed = Param::GetInt(Param::speed);
+   int invmode = Param::GetInt(Param::invmode);
+   s32fp idc = Param::Get(Param::idc);
+   s32fp udcbms = Param::Get(Param::udcbms);
+   s32fp power = FP_MUL(idc, udcbms) / 1000;
 
    Param::SetFlt(Param::power, power);
 
@@ -543,7 +559,7 @@ static void Ms10Task(void)
          }
          else
          {
-            dcdcVoltage = Param::Get(Param::udcdc);
+            DigIo::dcdc_out.Set();
 
             if (Param::GetBool(Param::heatcmd))
             {
@@ -568,7 +584,25 @@ static void Ms10Task(void)
       dcdcDelay = 100;
    }
 
-   if (invmode == MOD_OFF)
+   if (DigIo::charge_in.Get())
+   {
+      int udcbms = Param::GetInt(Param::udcbms);
+      int udcobc = Param::GetInt(Param::udcobc);
+
+      chargeMode = true;
+
+      if (udcbms > 250 && (udcbms - udcobc) < 10)
+      {
+         DigIo::dcsw_out.Set();
+         Param::SetInt(Param::din_forward, 0);
+         Param::SetInt(Param::opmode, MOD_CHARGE);
+      }
+      else
+      {
+         Param::SetInt(Param::opmode, MOD_CHARGESTART);
+      }
+   }
+   else if (invmode == MOD_OFF)
    {
       //Do not drop DC contactor in off mode because pre-charge
       //is always on and we will burn the precharge resistor
@@ -595,15 +629,36 @@ static void Ms10Task(void)
       }
       else
       {
-         dcdcVoltage = Param::Get(Param::udcdc);
+         DigIo::dcdc_out.Set();
       }
    }
 
    s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
-   cur = FP_MUL(cur, Param::Get(Param::powerslack));
+
+   if (DigIo::charge_in.Get())
+   {
+      if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()))
+      {
+         s32fp chargeLimit = Param::Get(Param::chargelimit);
+         s32fp obclimit = Param::Get(Param::obclimit);
+
+         cur = MIN(cur, chargeLimit);
+         cur = MIN(cur, obclimit);
+      }
+      else
+      {
+         cur = 0;
+      }
+   }
+   else
+   {
+      //CHAdeMO or normal operation
+      cur = FP_MUL(cur, Param::Get(Param::powerslack));
+   }
+
+   Param::SetFlt(Param::chgcurlim, cur);
    Param::SetInt(Param::vacuum, vacuum);
    Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
-   Param::SetFlt(Param::chgcurlim, cur);
    cur = FP_DIV((1000 * Param::Get(Param::dislim)), Param::Get(Param::udcbms));
    cur = FP_MUL(cur, Param::Get(Param::powerslack));
    Param::SetFlt(Param::discurlim, cur);
@@ -615,23 +670,16 @@ static void Ms10Task(void)
    ErrorMessage::SetTime(rtc_get_counter_val());
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
 
-   LeafBMS::Send10msMessages(can, dcdcVoltage);
+   LeafBMS::Send10msMessages(can);
+   SendVag10MsMessages(power);
+
    if (!chargeMode)
    {
-      uint32_t canData[2];
-
-      //Byte1 seq 2, Byte ?, Byte 7 XOR(bytes[0..6])
-      uint8_t check = seq2[seq1Ctr] ^ errlights ^ (consumptionCounter & 0xFF) ^ (consumptionCounter >> 8) ^ cruiselight ^ 0x1A;
-      canData[0] = seq2[seq1Ctr] | errlights << 8 | consumptionCounter << 16;
-      canData[1] = 0x1A | cruiselight << 18 | check << 24;
-
-      can->Send(0x480, canData);
-
       Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
-
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
-         can->SendAll();
    }
+
+   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
+      can->SendAll();
 }
 
 /** This function is called when the user changes a parameter */
