@@ -3,7 +3,7 @@
 
 #include "hwdefs.h"
 
-#define NUM_SAMPLES 16
+#define NUM_SAMPLES 64
 #define SAMPLE_TIME ADC_SMPR_SMP_7DOT5CYC
 
 #define ANA_IN_LIST \

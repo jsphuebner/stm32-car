@@ -75,6 +75,7 @@
     VALUE_ENTRY(udcbms,       "V",     2048 ) \
     VALUE_ENTRY(udccdm,       "V",     2068 ) \
     VALUE_ENTRY(udcobc,       "V",     2091 ) \
+    VALUE_ENTRY(uacobc,       "V",     2092 ) \
     VALUE_ENTRY(chglim,       "kW",    2049 ) \
     VALUE_ENTRY(dislim,       "kW",    2050 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
@@ -84,6 +85,7 @@
     VALUE_ENTRY(idc,          "A",     2047 ) \
     VALUE_ENTRY(idccdm,       "A",     2067 ) \
     VALUE_ENTRY(idcdc,        "A",     2081 ) \
+    VALUE_ENTRY(iacobc,       "A",     2093 ) \
     VALUE_ENTRY(soc,          "%",     2052 ) \
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
@@ -121,11 +123,12 @@
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(din_charge,   ONOFF,   2087 ) \
     VALUE_ENTRY(dout_dcsw,    ONOFF,   2090 ) \
+    VALUE_ENTRY(dout_dcdc,    ONOFF,   2094 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2092
+//Next value Id: 2095
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"

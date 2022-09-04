@@ -323,8 +323,8 @@ static void Ms100Task(void)
 {
    DigIo::led_out.Toggle();
    iwdg_reset();
-   s32fp cpuLoad = FP_FROMINT(scheduler->GetCpuLoad());
-   Param::SetFlt(Param::cpuload, cpuLoad / 10);
+   float cpuLoad = scheduler->GetCpuLoad();
+   Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
 
@@ -333,8 +333,8 @@ static void Ms100Task(void)
 
    if (!LeafBMS::Alive(rtc_get_counter_val()))
    {
-      Param::SetFlt(Param::chgcurlim, 0);
-      Param::SetFlt(Param::chglim, 0);
+      Param::SetInt(Param::chgcurlim, 0);
+      Param::SetInt(Param::chglim, 0);
    }
 
    ProcessCruiseControlButtons();
@@ -388,27 +388,27 @@ static void GetDigInputs()
    Param::SetInt(Param::canio, canio);
 }
 
-static void TractionControl(s32fp& throtmin, s32fp& throtmax)
+static void TractionControl(float& throtmin, float& throtmax)
 {
    if (!Param::GetBool(Param::espoff))
    {
-      s32fp frontAxleSpeed = (Param::Get(Param::wheelfl) + Param::Get(Param::wheelfr)) / 2;
-      s32fp rearAxleSpeed = (Param::Get(Param::wheelrl) + Param::Get(Param::wheelrr)) / 2;
-      s32fp diff = frontAxleSpeed - rearAxleSpeed;
-      s32fp kp = Param::Get(Param::tractionkp);
+      float frontAxleSpeed = (Param::GetFloat(Param::wheelfl) + Param::GetFloat(Param::wheelfr)) / 2;
+      float rearAxleSpeed = (Param::GetFloat(Param::wheelrl) + Param::GetFloat(Param::wheelrr)) / 2;
+      float diff = frontAxleSpeed - rearAxleSpeed;
+      float kp = Param::GetFloat(Param::tractionkp);
 
       //Here we assume front wheel drive
       if (diff < 0)
       {
          //Front axle turns slower than rear axle -> too much breaking force
-         s32fp speedErr = Param::Get(Param::allowedlag) - diff;
-         throtmin = -FP_FROMINT(100) + FP_MUL(kp, speedErr);
+         float speedErr = Param::GetFloat(Param::allowedlag) - diff;
+         throtmin = -100 + (kp * speedErr);
       }
       else
       {
          //Front axle turns faster than rear axle -> wheel spin
-         s32fp speedErr = Param::Get(Param::allowedspin) - diff;
-         throtmax = FP_FROMINT(100) + FP_MUL(kp, speedErr);
+         float speedErr = Param::GetFloat(Param::allowedspin) - diff;
+         throtmax = 100 + (kp * speedErr);
       }
    }
 }
@@ -439,27 +439,27 @@ static void ProcessThrottle()
 
 static void LimitThrottle()
 {
-   s32fp throtmin = -FP_FROMINT(100), throtmax = FP_FROMINT(100);
+   float throtmin = -100, throtmax = 100;
 
    TractionControl(throtmin, throtmax);
 
    throtmin = MIN(0, throtmin);
-   throtmin = MAX(-FP_FROMINT(100), throtmin);
-   throtmax = MIN(FP_FROMINT(100), throtmax);
+   throtmin = MAX(-100, throtmin);
+   throtmax = MIN(100, throtmax);
    throtmax = MAX(0, throtmax);
 
-   Param::SetFlt(Param::calcthrotmax, throtmax);
-   Param::SetFlt(Param::calcthrotmin, throtmin);
+   Param::SetFloat(Param::calcthrotmax, throtmax);
+   Param::SetFloat(Param::calcthrotmin, throtmin);
 }
 
-static void SendVag10MsMessages(s32fp power)
+static void SendVag10MsMessages(float power)
 {
    const uint8_t seq2[] = { 0x10, 0x68, 0x94, 0xC0 };
    static int seq1Ctr = 0;
    static uint16_t consumptionCounter = 0;
    static uint32_t accumulatedRegen = 0;
    uint32_t canData[2];
-   int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
+   int32_t consumptionIncrement = -2.8f * power;
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
 
@@ -505,11 +505,11 @@ static void Ms10Task(void)
    int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
    int invmode = Param::GetInt(Param::invmode);
-   s32fp idc = Param::Get(Param::idc);
-   s32fp udcbms = Param::Get(Param::udcbms);
-   s32fp power = FP_MUL(idc, udcbms) / 1000;
+   float idc = Param::GetFloat(Param::idc);
+   float udcbms = Param::GetFloat(Param::udcbms);
+   float power = (idc * udcbms) / 1000;
 
-   Param::SetFlt(Param::power, power);
+   Param::SetFloat(Param::power, power);
 
    if (speed > oilthresh)
    {
@@ -559,7 +559,14 @@ static void Ms10Task(void)
          }
          else
          {
-            DigIo::dcdc_out.Set();
+            if (Param::GetFloat(Param::uaux) < 12.5f)
+            {
+               DigIo::dcdc_out.Set();
+            }
+            else if (Param::GetFloat(Param::uaux) > 14.1f && Param::GetFloat(Param::idcdc) < 15)
+            {
+               DigIo::dcdc_out.Clear();
+            }
 
             if (Param::GetBool(Param::heatcmd))
             {
@@ -590,11 +597,15 @@ static void Ms10Task(void)
       int udcobc = Param::GetInt(Param::udcobc);
 
       chargeMode = true;
+      Param::SetInt(Param::din_forward, 0);
 
-      if (udcbms > 250 && (udcbms - udcobc) < 10)
+      if (Param::Get(Param::soc) >= Param::Get(Param::soclimit))
+      {
+         Param::SetInt(Param::opmode, MOD_CHARGEND);
+      }
+      else if (udcbms > 250 && (udcbms - udcobc) < 10)
       {
          DigIo::dcsw_out.Set();
-         Param::SetInt(Param::din_forward, 0);
          Param::SetInt(Param::opmode, MOD_CHARGE);
       }
       else
@@ -620,7 +631,7 @@ static void Ms10Task(void)
    else
    {
       DigIo::dcsw_out.Set();
-      Param::SetFlt(Param::speedmod, MAX(FP_FROMINT(700), Param::Get(Param::speed)));
+      Param::SetFloat(Param::speedmod, MAX(700, Param::GetFloat(Param::speed)));
       Param::SetInt(Param::din_forward, !chargeMode);
 
       if (dcdcDelay > 0)
@@ -633,14 +644,14 @@ static void Ms10Task(void)
       }
    }
 
-   s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
+   float cur = (1000 * Param::GetFloat(Param::chglim)) / Param::GetFloat(Param::udcbms);
 
    if (DigIo::charge_in.Get())
    {
-      if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()))
+      if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
       {
-         s32fp chargeLimit = Param::Get(Param::chargelimit);
-         s32fp obclimit = Param::Get(Param::obclimit);
+         float chargeLimit = Param::GetFloat(Param::chargelimit);
+         float obclimit = Param::GetFloat(Param::obclimit);
 
          cur = MIN(cur, chargeLimit);
          cur = MIN(cur, obclimit);
@@ -653,15 +664,15 @@ static void Ms10Task(void)
    else
    {
       //CHAdeMO or normal operation
-      cur = FP_MUL(cur, Param::Get(Param::powerslack));
+      cur = cur * Param::GetFloat(Param::powerslack);
    }
 
-   Param::SetFlt(Param::chgcurlim, cur);
+   Param::SetFloat(Param::chgcurlim, cur);
    Param::SetInt(Param::vacuum, vacuum);
-   Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
-   cur = FP_DIV((1000 * Param::Get(Param::dislim)), Param::Get(Param::udcbms));
-   cur = FP_MUL(cur, Param::Get(Param::powerslack));
-   Param::SetFlt(Param::discurlim, cur);
+   Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
+   cur = (1000 * Param::GetFloat(Param::dislim)) / Param::GetFloat(Param::udcbms);
+   cur = cur * Param::GetFloat(Param::powerslack);
+   Param::SetFloat(Param::discurlim, cur);
 
    GetDigInputs();
    ProcessThrottle();
@@ -669,6 +680,7 @@ static void Ms10Task(void)
 
    ErrorMessage::SetTime(rtc_get_counter_val());
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
+   Param::SetInt(Param::dout_dcdc, DigIo::dcdc_out.Get());
 
    LeafBMS::Send10msMessages(can);
    SendVag10MsMessages(power);
@@ -683,14 +695,14 @@ static void Ms10Task(void)
 }
 
 /** This function is called when the user changes a parameter */
-extern void parm_Change(Param::PARAM_NUM paramNum)
+extern void Param::Change(Param::PARAM_NUM paramNum)
 {
-   if (Param::canspeed == paramNum)
-      can->SetBaudrate((Can::baudrates)Param::GetInt(Param::canspeed));
+   paramNum = paramNum;
 }
 
 static void CanCallback(uint32_t id, uint32_t data[2])
 {
+   int tmpdcdc[3];
    switch (id)
    {
    case 0x108:
@@ -700,7 +712,16 @@ static void CanCallback(uint32_t id, uint32_t data[2])
       ChaDeMo::Process109Message(data);
       break;
    case 0x420:
-      Param::SetFlt(Param::tmpaux, FP_FROMINT((((data[0] >> 8) & 0xFF) - 100)) / 2);
+      Param::SetFloat(Param::tmpaux, ((((data[0] >> 8) & 0xFF) - 100.0f)) / 2);
+      ignitionTimeout = 10;
+      break;
+   case 0x377:
+      Param::SetFloat(Param::uaux, (((data[0] & 0xFF) << 8) + ((data[0] & 0xFF00) >> 8)) * 0.01f);
+      Param::SetFloat(Param::idcdc, (((data[0] & 0xFF0000) >> 8) + ((data[0] & 0xFF000000) >> 24)) * 0.1f);
+      tmpdcdc[0] = data[1] & 0xFF;
+      tmpdcdc[1] = (data[1] >> 8) & 0xFF;
+      tmpdcdc[2] = (data[1] >> 16) & 0xFF;
+      Param::SetFloat(Param::tmpdcdc, MAX(MAX(tmpdcdc[0], tmpdcdc[1]), tmpdcdc[2]) - 40);
       ignitionTimeout = 10;
       break;
    default:
@@ -734,7 +755,7 @@ extern "C" int main(void)
    nvic_setup();
    parm_load();
 
-   Can c(CAN1, (Can::baudrates)Param::GetInt(Param::canspeed));
+   Can c(CAN1, Can::Baud500);
 
    c.SetNodeId(2);
    c.SetReceiveCallback(CanCallback);
@@ -747,6 +768,7 @@ extern "C" int main(void)
    c.RegisterUserMessage(0x108);
    c.RegisterUserMessage(0x109);
    c.RegisterUserMessage(0x420);
+   c.RegisterUserMessage(0x377);
 
    can = &c;
 

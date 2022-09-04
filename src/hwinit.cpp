@@ -102,23 +102,14 @@ void write_bootloader_pininit()
 */
 void nvic_setup(void)
 {
-   nvic_enable_irq(PWM_TIMER_IRQ); //Main PWM
-   nvic_set_priority(PWM_TIMER_IRQ, 1 << 4); //Set second-highest priority
-
-   nvic_enable_irq(NVIC_TIM1_BRK_IRQ); //Emergency shut down
-   nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0); //Highest priority
-
-   nvic_enable_irq(NVIC_EXTI2_IRQ); //Encoder Index pulse
-   nvic_set_priority(NVIC_EXTI2_IRQ, 0); //Set highest priority
-
    nvic_enable_irq(NVIC_TIM2_IRQ); //Scheduler
    nvic_set_priority(NVIC_TIM2_IRQ, 0xe << 4); //second lowest priority
 
 	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
 	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
 
-	nvic_enable_irq(NVIC_USB_HP_CAN_TX_IRQ); //CAN TX
-	nvic_set_priority(NVIC_USB_HP_CAN_TX_IRQ, 0xf << 4); //lowest priority
+   nvic_enable_irq(NVIC_USB_HP_CAN_TX_IRQ); //CAN TX
+   nvic_set_priority(NVIC_USB_HP_CAN_TX_IRQ, 0xf << 4); //lowest priority
 }
 
 void rtc_setup()
