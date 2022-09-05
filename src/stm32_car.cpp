@@ -694,6 +694,29 @@ static void Ms10Task(void)
       can->SendAll();
 }
 
+static void DecodeCruiseControl(uint32_t data)
+{
+   int ctr1 = (data >> 4) & 0xF;
+   int ctr2 = (data >> 20) & 0xF;
+   int stt1 = (data >> 8) & 0xF;
+   int stt2 = (data >> 0) & 0xF;
+
+   if (ctr1 == ctr2)
+   {
+      int decodedStt = 0;
+      if (stt2 == 13) decodedStt = CRUISE_ON;
+      if (stt2 == 15) decodedStt = CRUISE_ON | CRUISE_DISABLE;
+      if (stt2 == 9) decodedStt = CRUISE_ON | CRUISE_SETN;
+      if (stt2 == 5) decodedStt = CRUISE_ON | CRUISE_SETP;
+
+      if (decodedStt == stt1)
+      {
+         Param::SetInt(Param::cruisestt, stt1);
+      }
+   }
+
+}
+
 /** This function is called when the user changes a parameter */
 extern void Param::Change(Param::PARAM_NUM paramNum)
 {
@@ -723,6 +746,9 @@ static void CanCallback(uint32_t id, uint32_t data[2])
       tmpdcdc[2] = (data[1] >> 16) & 0xFF;
       Param::SetFloat(Param::tmpdcdc, MAX(MAX(tmpdcdc[0], tmpdcdc[1]), tmpdcdc[2]) - 40);
       ignitionTimeout = 10;
+      break;
+   case 0x38A:
+      DecodeCruiseControl(data[0]);
       break;
    default:
       LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
@@ -769,6 +795,7 @@ extern "C" int main(void)
    c.RegisterUserMessage(0x109);
    c.RegisterUserMessage(0x420);
    c.RegisterUserMessage(0x377);
+   c.RegisterUserMessage(0x38A);
 
    can = &c;
 
