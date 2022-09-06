@@ -495,9 +495,37 @@ static void SendVag10MsMessages(float power)
    can->Send(0x480, canData);
 }
 
-static void Ms10Task(void)
+static void SwitchDcDcConverter()
 {
    static int dcdcDelay = 100;
+
+   if (DigIo::dcsw_out.Get())
+   {
+      if (dcdcDelay > 0)
+      {
+         dcdcDelay--;
+      }
+      else
+      {
+         if (Param::GetFloat(Param::uaux) < Param::GetFloat(Param::dcdcresume))
+         {
+            DigIo::dcdc_out.Set();
+         }
+         else if (Param::GetFloat(Param::uaux) > 14.1f && Param::GetFloat(Param::idcdc) < Param::GetFloat(Param::dcdcutoff))
+         {
+            DigIo::dcdc_out.Clear();
+         }
+      }
+   }
+   else
+   {
+      dcdcDelay = 100;
+      DigIo::dcdc_out.Clear();
+   }
+}
+
+static void Ms10Task(void)
+{
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
    int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
@@ -550,45 +578,12 @@ static void Ms10Task(void)
    else if (chargeMode)
    {
       DigIo::vacuum_out.Set(); //Turn off vacuum pump
-
-      if (DigIo::dcsw_out.Get())
-      {
-         if (dcdcDelay > 0)
-         {
-            dcdcDelay--;
-         }
-         else
-         {
-            if (Param::GetFloat(Param::uaux) < 12.5f)
-            {
-               DigIo::dcdc_out.Set();
-            }
-            else if (Param::GetFloat(Param::uaux) > 14.1f && Param::GetFloat(Param::idcdc) < 15)
-            {
-               DigIo::dcdc_out.Clear();
-            }
-
-            if (Param::GetBool(Param::heatcmd))
-            {
-               DigIo::heater_out.Set();
-            }
-            else
-            {
-               DigIo::heater_out.Clear();
-            }
-         }
-      }
-      else
-      {
-         DigIo::heater_out.Clear();
-         dcdcDelay = 100;
-      }
+      DigIo::heater_out.Clear();
    }
    else
    {
       DigIo::vacuum_out.Set();
       DigIo::heater_out.Clear();
-      dcdcDelay = 100;
    }
 
    if (DigIo::charge_in.Get())
@@ -633,15 +628,6 @@ static void Ms10Task(void)
       DigIo::dcsw_out.Set();
       Param::SetFloat(Param::speedmod, MAX(700, Param::GetFloat(Param::speed)));
       Param::SetInt(Param::din_forward, !chargeMode);
-
-      if (dcdcDelay > 0)
-      {
-         dcdcDelay--;
-      }
-      else
-      {
-         DigIo::dcdc_out.Set();
-      }
    }
 
    float cur = (1000 * Param::GetFloat(Param::chglim)) / Param::GetFloat(Param::udcbms);
@@ -677,6 +663,7 @@ static void Ms10Task(void)
    GetDigInputs();
    ProcessThrottle();
    LimitThrottle();
+   SwitchDcDcConverter();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
