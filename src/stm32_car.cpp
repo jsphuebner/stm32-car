@@ -190,7 +190,7 @@ static void RunChaDeMo()
 {
    static uint32_t startTime = 0;
 
-   if (DigIo::charge_in.Get()) return; //do not run CHAdeMO when OBC is active
+   if (Param::GetBool(Param::din_charge)) return; //do not run CHAdeMO when OBC is active
 
    if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
    {
@@ -198,6 +198,11 @@ static void RunChaDeMo()
       //the car is off and we are in charge mode
       if (Param::GetInt(Param::udcinv) < 10)
       {
+         if (Param::GetInt(Param::udcobc) > 200)
+         {
+            Param::SetInt(Param::din_charge, 1);
+            return;
+         }
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
          timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
@@ -382,8 +387,6 @@ static void GetDigInputs()
       canio |= CAN_IO_REV;
    if (Param::GetBool(Param::din_bms))
       canio |= CAN_IO_BMS;
-
-   Param::SetInt(Param::din_charge, DigIo::charge_in.Get());
 
    Param::SetInt(Param::canio, canio);
 }
@@ -586,7 +589,7 @@ static void Ms10Task(void)
       DigIo::heater_out.Clear();
    }
 
-   if (DigIo::charge_in.Get())
+   if (Param::GetBool(Param::din_charge))
    {
       int udcbms = Param::GetInt(Param::udcbms);
       int udcobc = Param::GetInt(Param::udcobc);
@@ -597,11 +600,13 @@ static void Ms10Task(void)
       if (Param::Get(Param::soc) >= Param::Get(Param::soclimit))
       {
          Param::SetInt(Param::opmode, MOD_CHARGEND);
+         Param::SetInt(Param::dout_evse, 0);
       }
       else if (udcbms > 250 && (udcbms - udcobc) < 10)
       {
          DigIo::dcsw_out.Set();
          Param::SetInt(Param::opmode, MOD_CHARGE);
+         Param::SetInt(Param::dout_evse, 1);
       }
       else
       {
@@ -632,7 +637,7 @@ static void Ms10Task(void)
 
    float cur = (1000 * Param::GetFloat(Param::chglim)) / Param::GetFloat(Param::udcbms);
 
-   if (DigIo::charge_in.Get())
+   if (Param::GetBool(Param::din_charge))
    {
       if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
       {
