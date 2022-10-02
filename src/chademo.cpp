@@ -74,11 +74,12 @@ void ChaDeMo::SetChargeCurrent(uint8_t current)
 
 void ChaDeMo::CheckSensorDeviation(uint16_t internalVoltage)
 {
+   bool charging = chargerStatus & 1; //charge flag set
    int vtgDev = (int)internalVoltage - (int)chargerOutputVoltage;
 
    vtgDev = ABS(vtgDev);
 
-   if (vtgDev > 10 && chargerOutputVoltage > 50)
+   if (charging && vtgDev > 10)
    {
       vtgTimeout++;
    }
@@ -87,7 +88,7 @@ void ChaDeMo::CheckSensorDeviation(uint16_t internalVoltage)
       vtgTimeout = 0;
    }
 
-   if (chargerOutputCurrent > (rampedCurReq + 12))
+   if (charging && chargerOutputCurrent > (rampedCurReq + 12))
    {
       curTimeout++;
    }

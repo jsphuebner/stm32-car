@@ -198,6 +198,7 @@ static void RunChaDeMo()
       //the car is off and we are in charge mode
       if (Param::GetInt(Param::udcinv) < 10)
       {
+         //If we receive a voltage from the charger then we are in AC charge mode
          if (Param::GetInt(Param::udcobc) > 200)
          {
             Param::SetInt(Param::din_charge, 1);
@@ -527,6 +528,66 @@ static void SwitchDcDcConverter()
    }
 }
 
+static void CalcBatteryCurrentLimits()
+{
+   float cur = (1000 * Param::GetFloat(Param::chglim)) / Param::GetFloat(Param::udcbms);
+   float soc = Param::GetFloat(Param::soc);
+   float tmpbat1 = Param::GetFloat(Param::tmpbat1);
+   float tmpbat2 = Param::GetFloat(Param::tmpbat2);
+   float tmpbat3 = Param::GetFloat(Param::tmpbat3);
+   float tmpbatMin = MIN(MIN(tmpbat1, tmpbat2), tmpbat3);
+   float tmpbatMax = MAX(MAX(tmpbat1, tmpbat2), tmpbat3);
+   bool tmpLim = (Param::GetInt(Param::limreason) & 3) == 3;
+   bool bmsOverride = Param::GetBool(Param::bmsoverride);
+   bool highTempDiff = bmsOverride && tmpLim && tmpbatMax < 56 && tmpbatMin < 45 && tmpbatMin > 23;
+
+   if (Param::GetBool(Param::din_charge))
+   {
+      if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
+      {
+         float chargeLimit = Param::GetFloat(Param::chargelimit);
+         float obclimit = Param::GetFloat(Param::obclimit);
+
+         cur = MIN(cur, chargeLimit);
+         cur = MIN(cur, obclimit);
+      }
+      else
+      {
+         cur = 0;
+      }
+   }
+   else
+   {
+      //CHAdeMO or normal operation
+      //If temperature difference between the three sensors is too high
+      //BMS will kick in a ridiculous power limit. Let ignore that
+      if (highTempDiff)
+      {
+         //125A up to 60%
+         if (soc < 60)
+            cur = 125;
+         //Taper off  with 3.2 A/% between 60 and 80%
+         else if (soc < 80)
+            cur = 125.0f - 64.0f * (soc - 60.0f) / 20.0f;
+         //Above 80% use stock BMS limit
+      }
+      cur *= Param::GetFloat(Param::powerslack);
+   }
+
+   Param::SetFloat(Param::chgcurlim, cur);
+
+   //Calc discharge current limit
+   cur = (1000 * Param::GetFloat(Param::dislim)) / Param::GetFloat(Param::udcbms);
+
+   //Avoid silly power limit on large temperature difference between 3 sensors
+   if (highTempDiff && soc > 20)
+   {
+      cur = 125000.0f / Param::GetFloat(Param::udcbms);
+   }
+   cur *= Param::GetFloat(Param::powerslack);
+   Param::SetFloat(Param::discurlim, cur);
+}
+
 static void Ms10Task(void)
 {
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
@@ -615,9 +676,6 @@ static void Ms10Task(void)
    }
    else if (invmode == MOD_OFF)
    {
-      //Do not drop DC contactor in off mode because pre-charge
-      //is always on and we will burn the precharge resistor
-      //because the DC/DC converter still draws power
       Param::SetInt(Param::speedmod, 0);
 
       //Inverter is unpowered -> DC relays are unpowered -> release turn-on signal so they
@@ -635,36 +693,7 @@ static void Ms10Task(void)
       Param::SetInt(Param::din_forward, !chargeMode);
    }
 
-   float cur = (1000 * Param::GetFloat(Param::chglim)) / Param::GetFloat(Param::udcbms);
-
-   if (Param::GetBool(Param::din_charge))
-   {
-      if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
-      {
-         float chargeLimit = Param::GetFloat(Param::chargelimit);
-         float obclimit = Param::GetFloat(Param::obclimit);
-
-         cur = MIN(cur, chargeLimit);
-         cur = MIN(cur, obclimit);
-      }
-      else
-      {
-         cur = 0;
-      }
-   }
-   else
-   {
-      //CHAdeMO or normal operation
-      cur = cur * Param::GetFloat(Param::powerslack);
-   }
-
-   Param::SetFloat(Param::chgcurlim, cur);
-   Param::SetInt(Param::vacuum, vacuum);
-   Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
-   cur = (1000 * Param::GetFloat(Param::dislim)) / Param::GetFloat(Param::udcbms);
-   cur = cur * Param::GetFloat(Param::powerslack);
-   Param::SetFloat(Param::discurlim, cur);
-
+   CalcBatteryCurrentLimits();
    GetDigInputs();
    ProcessThrottle();
    LimitThrottle();
@@ -673,6 +702,8 @@ static void Ms10Task(void)
    ErrorMessage::SetTime(rtc_get_counter_val());
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
    Param::SetInt(Param::dout_dcdc, DigIo::dcdc_out.Get());
+   Param::SetInt(Param::vacuum, vacuum);
+   Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
 
    LeafBMS::Send10msMessages(can);
    SendVag10MsMessages(power);
@@ -706,7 +737,6 @@ static void DecodeCruiseControl(uint32_t data)
          Param::SetInt(Param::cruisestt, stt1);
       }
    }
-
 }
 
 /** This function is called when the user changes a parameter */

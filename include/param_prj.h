@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.28.R
+#define VER 1.29.R
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 110
+//Next param id (increase when adding new parameter!): 111
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -35,6 +35,7 @@
     PARAM_ENTRY(CAT_CRUISE,   cruiserampdn,"rpm/100ms",1,     1000,   20,     11  ) \
     PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101 ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    5,      1.1,    4   ) \
+    PARAM_ENTRY(CAT_POWER,    bmsoverride, ONOFF,     0,      1,      0,      110 ) \
     PARAM_ENTRY(CAT_POWER,    chargelimit, "A",       0,      255,    255,    10  ) \
     PARAM_ENTRY(CAT_POWER,    obclimit,    "A",       0,      255,    12,     107 ) \
     PARAM_ENTRY(CAT_POWER,    soclimit,    "%",       0,      100,    100,    12  ) \
