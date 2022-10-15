@@ -59,11 +59,13 @@
 		<Unit filename="libopeninv/include/anain.h" />
 		<Unit filename="libopeninv/include/digio.h" />
 		<Unit filename="libopeninv/include/errormessage.h" />
+		<Unit filename="libopeninv/include/linbus.h" />
 		<Unit filename="libopeninv/include/my_fp.h" />
 		<Unit filename="libopeninv/include/my_math.h" />
 		<Unit filename="libopeninv/include/my_string.h" />
 		<Unit filename="libopeninv/include/param_save.h" />
 		<Unit filename="libopeninv/include/params.h" />
+		<Unit filename="libopeninv/include/picontroller.h" />
 		<Unit filename="libopeninv/include/printf.h" />
 		<Unit filename="libopeninv/include/stm32_can.h" />
 		<Unit filename="libopeninv/include/stm32scheduler.h" />
@@ -72,6 +74,7 @@
 		<Unit filename="libopeninv/src/anain.cpp" />
 		<Unit filename="libopeninv/src/digio.cpp" />
 		<Unit filename="libopeninv/src/errormessage.cpp" />
+		<Unit filename="libopeninv/src/linbus.cpp" />
 		<Unit filename="libopeninv/src/my_fp.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -80,6 +83,7 @@
 		</Unit>
 		<Unit filename="libopeninv/src/param_save.cpp" />
 		<Unit filename="libopeninv/src/params.cpp" />
+		<Unit filename="libopeninv/src/picontroller.cpp" />
 		<Unit filename="libopeninv/src/stm32_can.cpp" />
 		<Unit filename="libopeninv/src/stm32scheduler.cpp" />
 		<Unit filename="libopeninv/src/terminal.cpp" />
