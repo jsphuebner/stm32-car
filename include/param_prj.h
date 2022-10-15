@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.29.R-A2
+#define VER 1.30.R-A2
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 108
+//Next param id (increase when adding new parameter!): 110
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -49,11 +49,10 @@
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
-    PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, ".1%",     0,      1000,  1000,     1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugefrq,    "dig",     0,      65535,65535,    107 ) \
-    PARAM_ENTRY(CAT_GAUGE,    gaugegain,   ".1%/%",   -1024,  1024,   5,      2   ) \
-    PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,    50,     8   ) \
-    PARAM_ENTRY(CAT_GAUGE,    intempofs,   "dig",     0,      4095,   1700,   104 ) \
+    PARAM_ENTRY(CAT_GAUGE,    gaugemax,    "l",       0,      100,    34,     2   ) \
+    PARAM_ENTRY(CAT_GAUGE,    fueldcmin,   ".1%",     0,      1000,   400,    108 ) \
+    PARAM_ENTRY(CAT_GAUGE,    fueldcmax,   ".1%",     0,      1000,   800,    109 ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
     PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      1,      83  ) \
     PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
@@ -101,7 +100,6 @@
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
     VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
     VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
-    VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
@@ -121,9 +119,10 @@
     VALUE_ENTRY(din_bmslock,  ONOFF,   2054 ) \
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
+    VALUE_ENTRY(fuelpos,      "l",     2094 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2094
+//Next value Id: 2095
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
@@ -132,7 +131,7 @@
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define ONOFFFORCE   "0=Off, 1=On, 2=Force"
 #define OKERR        "0=Error, 1=Ok, 2=na"
-#define CANSPEEDS    "0=250k, 1=500k, 2=800k, 3=1M"
+#define CANSPEEDS    "0=125k, 1=250k, 2=500k, 3=800k, 4=1M"
 #define CANIOS       "1=Cruise, 2=Start, 4=Brake, 8=Fwd, 16=Rev, 32=Bms"
 #define CANPERIODS   "0=100ms, 1=10ms"
 #define HWREVS       "0=Rev1, 1=Rev2, 2=Rev3, 3=Tesla"

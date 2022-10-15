@@ -102,8 +102,8 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
       bool interlock = (bytes[3] & (1 << 3)) >> 3;
       bool full = (bytes[3] & (1 << 4)) >> 4;
 
-      Param::SetFlt(Param::idc, cur / 2);
-      Param::SetFlt(Param::udcbms, udc / 2);
+      Param::SetFixed(Param::idc, cur / 2);
+      Param::SetFixed(Param::udcbms, udc / 2);
       Param::SetInt(Param::din_bmslock, interlock);
       Param::SetInt(Param::batfull, full);
    }
@@ -114,14 +114,14 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
 
       chgLimFiltered = IIRFILTER(chgLimFiltered, chglimit, 5);
 
-      Param::SetFlt(Param::dislim, dislimit / 4);
-      Param::SetFlt(Param::chglim, chgLimFiltered / 4);
+      Param::SetFixed(Param::dislim, dislimit / 4);
+      Param::SetFixed(Param::chglim, chgLimFiltered / 4);
       lastRecv = time;
    }
    else if (id == 0x55B)
    {
       s32fp soc = ((bytes[0] << 8) + (bytes[1] & 0xC0)) >> 1;
-      Param::SetFlt(Param::soc, soc / 10);
+      Param::SetFixed(Param::soc, soc / 10);
    }
    else if (id == 0x5BC)
    {

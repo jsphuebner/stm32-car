@@ -21,10 +21,11 @@
 #define GAUGEMAX           65535
 
 //Address of parameter block in flash
-#define PARAM_BLKSIZE 1024
+#define FLASH_PAGE_SIZE 1024
+#define PARAM_BLKSIZE FLASH_PAGE_SIZE
 #define PARAM_BLKNUM  1
-#define CAN_BLKSIZE   1024
-#define CAN_BLKNUM    2
+#define CAN1_BLKNUM   2
+#define CAN2_BLKNUM   4
 
 
 #endif // HWDEFS_H_INCLUDED

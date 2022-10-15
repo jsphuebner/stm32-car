@@ -39,6 +39,7 @@
 #include "leafbms.h"
 #include "chademo.h"
 #include "linbus.h"
+#include "picontroller.h"
 #include "my_string.h"
 
 #define RMS_SAMPLES 256
@@ -50,6 +51,7 @@ static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static Can* can;
 static LinBus* lin;
+static PiController fuelGaugeController;
 
 static void ProcessCruiseControlButtons()
 {
@@ -227,26 +229,32 @@ static void SendVAG100msMessage()
 static void SetFuelGauge()
 {
    int counts = Param::GetInt(Param::gaugefrq);
-   s32fp dcoffset = Param::Get(Param::gaugeoffset);
-   //int tmpaux = Param::GetInt(Param::tmpaux);
-   s32fp dcgain = Param::Get(Param::gaugegain);
+   int fuelPos = Param::GetInt(Param::fuelpos);
+   int fuelMax = Param::GetInt(Param::gaugemax);
    int soctest = Param::GetInt(Param::soctest);
    int soc = Param::GetInt(Param::soc);
-   soc = soctest != 0 ? soctest : soc;
-   soc -= Param::GetInt(Param::gaugebalance);
-   //Temperature compensation 1 digit per degree
-   //dcoffset -= tmpaux;
-   int dc1 = FP_TOINT(dcgain * soc + dcoffset);
-   int dc2 = FP_TOINT(-dcgain * soc + dcoffset);
+   int targetPos = (fuelMax * MAX(soctest, soc)) / 100;
 
-   dc1 *= counts;
-   dc2 *= counts;
-   dc1 /= 1000;
-   dc2 /= 1000;
+   if (fuelPos > fuelMax)
+   {
+      fuelGaugeController.PreloadIntegrator(500);
+   }
+   else
+   {
+      fuelGaugeController.SetRef(FP_FROMINT(fuelPos));
+   }
+
+   int dc = fuelGaugeController.Run(FP_FROMINT(targetPos));
+   dc = MIN(900, dc);
+   dc = MAX(100, dc);
+   dc *= counts;
+   dc /= 1000;
+
+   Param::SetInt(Param::tmphs, dc);
 
    timer_set_period(FUELGAUGE_TIMER, counts);
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc1);
-   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, dc);
+   timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc);
 }
 
 static void RunLin()
@@ -293,18 +301,17 @@ static void Ms100Task(void)
 {
    DigIo::led_out.Toggle();
    iwdg_reset();
-   s32fp cpuLoad = FP_FROMINT(scheduler->GetCpuLoad());
-   Param::SetFlt(Param::cpuload, cpuLoad / 10);
+   float cpuLoad = scheduler->GetCpuLoad();
+   Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
-   Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
 
    LeafBMS::RequestNextFrame(can);
    LeafBMS::Send100msMessages(can);
 
    if (!LeafBMS::Alive(rtc_get_counter_val()))
    {
-      Param::SetFlt(Param::chgcurlim, 0);
-      Param::SetFlt(Param::chglim, 0);
+      Param::SetInt(Param::chgcurlim, 0);
+      Param::SetInt(Param::chglim, 0);
    }
 
    ProcessCruiseControlButtons();
@@ -319,7 +326,6 @@ static void Ms100Task(void)
    if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
       can->SendAll();
    SendVAG100msMessage();
-   SetFuelGauge();
 }
 
 static void GetDigInputs()
@@ -375,27 +381,27 @@ static void GetDigInputs()
    Param::SetInt(Param::drivesel, drivesel);
 }
 
-static void TractionControl(s32fp& throtmin, s32fp& throtmax)
+static void TractionControl(float& throtmin, float& throtmax)
 {
    if (!Param::GetBool(Param::espoff))
    {
-      s32fp frontAxleSpeed = (Param::Get(Param::wheelfl) + Param::Get(Param::wheelfr)) / 2;
-      s32fp rearAxleSpeed = (Param::Get(Param::wheelrl) + Param::Get(Param::wheelrr)) / 2;
-      s32fp diff = frontAxleSpeed - rearAxleSpeed;
-      s32fp kp = Param::Get(Param::tractionkp);
+      float frontAxleSpeed = (Param::GetFloat(Param::wheelfl) + Param::GetFloat(Param::wheelfr)) / 2;
+      float rearAxleSpeed = (Param::GetFloat(Param::wheelrl) + Param::GetFloat(Param::wheelrr)) / 2;
+      float diff = frontAxleSpeed - rearAxleSpeed;
+      float kp = Param::GetFloat(Param::tractionkp);
 
       //Here we assume front wheel drive
       if (diff < 0)
       {
          //Front axle turns slower than rear axle -> too much breaking force
-         s32fp speedErr = Param::Get(Param::allowedlag) - diff;
-         throtmin = -FP_FROMINT(100) + FP_MUL(kp, speedErr);
+         float speedErr = Param::GetFloat(Param::allowedlag) - diff;
+         throtmin = -100 + kp * speedErr;
       }
       else
       {
          //Front axle turns faster than rear axle -> wheel spin
-         s32fp speedErr = Param::Get(Param::allowedspin) - diff;
-         throtmax = FP_FROMINT(100) + FP_MUL(kp, speedErr);
+         float speedErr = Param::GetFloat(Param::allowedspin) - diff;
+         throtmax = 100 + kp * speedErr;
       }
    }
 }
@@ -426,17 +432,17 @@ static void ProcessThrottle()
 
 static void LimitThrottle()
 {
-   s32fp throtmin = -FP_FROMINT(100), throtmax = FP_FROMINT(100);
+   float throtmin = -100, throtmax = 100;
 
    TractionControl(throtmin, throtmax);
 
    throtmin = MIN(0, throtmin);
-   throtmin = MAX(-FP_FROMINT(100), throtmin);
-   throtmax = MIN(FP_FROMINT(100), throtmax);
+   throtmin = MAX(-100, throtmin);
+   throtmax = MIN(100, throtmax);
    throtmax = MAX(0, throtmax);
 
-   Param::SetFlt(Param::calcthrotmax, throtmax);
-   Param::SetFlt(Param::calcthrotmin, throtmin);
+   Param::SetFloat(Param::calcthrotmax, throtmax);
+   Param::SetFloat(Param::calcthrotmin, throtmin);
 }
 
 static void SimulateOilSensor()
@@ -521,11 +527,11 @@ static void Ms10Task(void)
    int invmode = Param::GetInt(Param::invmode);
    int cruiselight = Param::GetInt(Param::cruiselight);
    int errlights = Param::GetInt(Param::errlights);
-   s32fp idc = Param::Get(Param::idc);
-   s32fp udcbms = Param::Get(Param::udcbms);
-   s32fp power = FP_MUL(idc, udcbms) / 1000;
-   s32fp dcdcVoltage = 0;
-   int32_t consumptionIncrement = -FP_TOINT(FP_MUL(power, FP_FROMFLT(2.8)));
+   float idc = Param::GetFloat(Param::idc);
+   float udcbms = Param::GetFloat(Param::udcbms);
+   float power = (idc * udcbms) / 1000.0f;
+   float dcdcVoltage = 0;
+   int32_t consumptionIncrement = -power * 2.8f;
 
    seq1Ctr = (seq1Ctr + 1) & 0x3;
 
@@ -551,7 +557,7 @@ static void Ms10Task(void)
       accumulatedRegen += -consumptionIncrement;
    }
 
-   Param::SetFlt(Param::power, power);
+   Param::SetFloat(Param::power, power);
 
    SimulateOilSensor();
    SetRevCounter();
@@ -591,23 +597,22 @@ static void Ms10Task(void)
       DigIo::vacuum_out.Clear();
    }
 
-   s32fp cur = FP_DIV((1000 * Param::Get(Param::chglim)), Param::Get(Param::udcbms));
-   cur = FP_MUL(cur, Param::Get(Param::powerslack));
+   float cur = 1000 * Param::GetFloat(Param::chglim) / udcbms;
+   cur *= Param::GetFloat(Param::powerslack);
    Param::SetInt(Param::vacuum, vacuum);
-   Param::SetFlt(Param::tmpmod, FP_FROMINT(48) + ((Param::Get(Param::tmpm) * 4) / 3));
-   Param::SetFlt(Param::chgcurlim, cur);
-   cur = FP_DIV((1000 * Param::Get(Param::dislim)), Param::Get(Param::udcbms));
-   cur = FP_MUL(cur, Param::Get(Param::powerslack));
-   Param::SetFlt(Param::discurlim, cur);
+   Param::SetFloat(Param::chgcurlim, cur);
+   cur = 1000 * Param::GetFloat(Param::dislim) / udcbms;
+   cur *= Param::GetFloat(Param::powerslack);
+   Param::SetFloat(Param::discurlim, cur);
 
    GetDigInputs();
    ProcessThrottle();
    LimitThrottle();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
-   //Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
 
    LeafBMS::Send10msMessages(can, dcdcVoltage);
+   SetFuelGauge();
 
    uint32_t canData[2];
 
@@ -623,10 +628,12 @@ static void Ms10Task(void)
 }
 
 /** This function is called when the user changes a parameter */
-extern void parm_Change(Param::PARAM_NUM paramNum)
+void Param::Change(Param::PARAM_NUM paramNum)
 {
    if (Param::canspeed == paramNum)
       can->SetBaudrate((Can::baudrates)Param::GetInt(Param::canspeed));
+
+   fuelGaugeController.SetMinMaxY(Param::GetInt(Param::fueldcmin), Param::GetInt(Param::fueldcmax));
 }
 
 static void CanCallback(uint32_t id, uint32_t data[2])
@@ -640,7 +647,7 @@ static void CanCallback(uint32_t id, uint32_t data[2])
       ChaDeMo::Process109Message(data);
       break;
    case 0x420:
-      Param::SetFlt(Param::tmpaux, FP_FROMINT((((data[0] >> 8) & 0xFF) - 100)) / 2);
+      Param::SetFloat(Param::tmpaux, (((data[0] >> 8) & 0xFF) - 100) / 2.0f);
       break;
    default:
       LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
@@ -695,6 +702,10 @@ extern "C" int main(void)
    scheduler = &s;
 
    Terminal t(USART3, termCmds);
+
+   fuelGaugeController.SetGains(5, 20);
+   fuelGaugeController.SetCallingFrequency(100);
+   fuelGaugeController.SetMinMaxY(Param::GetInt(Param::fueldcmin), Param::GetInt(Param::fueldcmax));
 
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);

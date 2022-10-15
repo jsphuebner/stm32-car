@@ -35,10 +35,10 @@ CPPFLAGS    = -O0 -g3 -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3
             -fno-common -std=c++20 -pedantic -DSTM32F1 -DT_DEBUG=$(TERMINAL_DEBUG)  \
 		 -ffunction-sections -fdata-sections -fno-builtin -fno-rtti -fno-exceptions -fno-unwind-tables -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
-LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
+LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -march=armv7 -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJSL		= $(BINARY).o hwinit.o stm32scheduler.o params.o terminal.o terminal_prj.o \
            my_string.o digio.o my_fp.o printf.o anain.o leafbms.o linbus.o \
-           param_save.o errormessage.o stm32_can.o chademo.o terminalcommands.o
+           param_save.o errormessage.o stm32_can.o chademo.o picontroller.o terminalcommands.o
 OBJS     = $(patsubst %.o,$(OUT_DIR)/%.o, $(OBJSL))
 vpath %.c src/ libopeninv/src/
 vpath %.cpp src/ libopeninv/src/
