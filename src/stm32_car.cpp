@@ -228,12 +228,20 @@ static void SendVAG100msMessage()
 
 static void SetFuelGauge()
 {
+   static int startupDelay = 500;
    int counts = Param::GetInt(Param::gaugefrq);
    int fuelPos = Param::GetInt(Param::fuelpos);
    int fuelMax = Param::GetInt(Param::gaugemax);
    int soctest = Param::GetInt(Param::soctest);
-   int soc = Param::GetInt(Param::soc);
-   int targetPos = (fuelMax * MAX(soctest, soc)) / 100;
+   int soc = soctest > 0 ? soctest : Param::GetInt(Param::soc);
+   int targetPos = (fuelMax * soc) / 100;
+
+   if (startupDelay > 0)
+   {
+      startupDelay--;
+      int preload = Param::GetInt(Param::fueldcmin) + (Param::GetInt(Param::fueldcmax) - Param::GetInt(Param::fueldcmin)) / 2;
+      fuelGaugeController.PreloadIntegrator(preload);
+   }
 
    if (fuelPos > fuelMax)
    {
@@ -245,8 +253,6 @@ static void SetFuelGauge()
    }
 
    int dc = fuelGaugeController.Run(FP_FROMINT(targetPos));
-   dc = MIN(900, dc);
-   dc = MAX(100, dc);
    dc *= counts;
    dc /= 1000;
 
@@ -328,41 +334,97 @@ static void Ms100Task(void)
    SendVAG100msMessage();
 }
 
-static void GetDigInputs()
+static void ReadDirectionButtons()
 {
    int drivesel = AnaIn::drivesel.Get();
-   int invdir = Param::GetInt(Param::invdir);
-   int canio = 0;
 
+   //Forward button
    if (drivesel > 2500 && drivesel < 3500)
    {
-      if (invdir == DIR_FORWARD)
+      drivesel = DIR_FORWARD;
+   }
+   //Reverse button
+   else if (drivesel > 1500 && drivesel < 2400)
+   {
+      drivesel = DIR_REVERSE;
+   }
+   //Neutral button
+   else if (drivesel > 500 && drivesel < 1400)
+   {
+      drivesel = DIR_NEUTRAL;
+   }
+   else
+   {
+      drivesel = DIR_NONE;
+   }
+
+   Param::SetInt(Param::drivesel, drivesel);
+}
+
+static void GetDigInputs()
+{
+   static int lastDrivesel = DIR_NONE;
+   int drivesel = Param::GetInt(Param::drivesel);
+   int invdir = Param::GetInt(Param::invdir);
+   int speed = Param::GetInt(Param::speed);
+   int cruisemode = Param::GetInt(Param::cruisestt) & CRUISE_ON;
+   int canio = 0;
+
+   //Forward button
+   if (drivesel == DIR_FORWARD)
+   {
+      //while driving use as cruise control/regen adjust
+      if (invdir == DIR_FORWARD && speed > 500)
       {
-         Param::SetInt(Param::cruisestt, CRUISE_SETP);
+         Param::SetInt(Param::cruisestt, cruisemode | CRUISE_SETP);
       }
       else if (Param::GetBool(Param::din_brake) || invdir == DIR_REVERSE)
       {
          Param::SetInt(Param::din_reverse, 0);
-         Param::SetInt(Param::din_bms, 0);
          Param::SetInt(Param::din_forward, 1);
       }
    }
-   else if (drivesel > 1500 && drivesel < 2400 && Param::GetBool(Param::din_brake))
+   //Reverse button
+   else if (drivesel == DIR_REVERSE)
    {
-      Param::SetInt(Param::din_forward, 0);
-      Param::SetInt(Param::din_reverse, 1);
-      Param::SetInt(Param::din_bms, 1);
+      //while driving use as cruise control/regen adjust
+      if (invdir == DIR_FORWARD && speed > 500)
+      {
+         Param::SetInt(Param::cruisestt, cruisemode | CRUISE_SETN);
+      }
+      else if (Param::GetBool(Param::din_brake) || invdir == DIR_FORWARD)
+      {
+         Param::SetInt(Param::din_forward, 0);
+         Param::SetInt(Param::din_reverse, 1);
+      }
    }
-   else if (drivesel > 500 && drivesel < 1400)
+   //Neutral button
+   else if (drivesel == DIR_NEUTRAL)
    {
-      Param::SetInt(Param::cruisestt, CRUISE_SETN);
+      if (speed == 0)
+      {
+         Param::SetInt(Param::din_forward, 1);
+         Param::SetInt(Param::din_reverse, 1);
+         Param::SetInt(Param::din_bms, 1); //prevents going into charge mode
+      }
+      /*else if (speed > 500 && lastDrivesel == DIR_NONE)
+      {
+         if (cruisemode)
+            Param::SetInt(Param::cruisestt, 0);
+         else
+            Param::SetInt(Param::cruisestt, CRUISE_ON);
+      }*/
    }
+   //No button
    else
    {
       Param::SetInt(Param::din_forward, 0);
       Param::SetInt(Param::din_reverse, 0);
-      Param::SetInt(Param::cruisestt, 0);
+      Param::SetInt(Param::cruisestt, cruisemode);
+      Param::SetInt(Param::din_bms, invdir == DIR_REVERSE); //limit torque in reverse
    }
+
+   lastDrivesel = drivesel;
 
    if (Param::GetBool(Param::din_cruise))
       canio |= CAN_IO_CRUISE;
@@ -378,7 +440,6 @@ static void GetDigInputs()
       canio |= CAN_IO_BMS;
 
    Param::SetInt(Param::canio, canio);
-   Param::SetInt(Param::drivesel, drivesel);
 }
 
 static void TractionControl(float& throtmin, float& throtmax)
@@ -488,8 +549,6 @@ static void SimulateOilSensor()
 
 static void SetRevCounter()
 {
-   static int displayTicks = 0;
-   static int regenLevelLast = 0;
    int regenLevel = Param::GetInt(Param::regenlevel);
 
    if (Param::GetInt(Param::invmode) != MOD_RUN || Param::GetInt(Param::invdir) == DIR_NEUTRAL)
@@ -497,22 +556,11 @@ static void SetRevCounter()
       DigIo::oilpres_out.Clear();
       Param::SetInt(Param::speedmod, 0);
    }
-   else if (regenLevel != regenLevelLast)
-   {
-      displayTicks = 100;
-      Param::SetInt(Param::speedmod, 1000 + regenLevel * 1000);
-   }
-   else if (displayTicks > 0)
-   {
-      displayTicks--;
-   }
    else
    {
       DigIo::oilpres_out.Set();
-      Param::SetInt(Param::speedmod, 3000 - Param::GetInt(Param::idc) * 10);
+      Param::SetInt(Param::speedmod, 1000 + regenLevel * 1000 - Param::GetInt(Param::idc) * 10);
    }
-
-   regenLevelLast = regenLevel;
 }
 
 static void Ms10Task(void)
@@ -605,6 +653,7 @@ static void Ms10Task(void)
    cur *= Param::GetFloat(Param::powerslack);
    Param::SetFloat(Param::discurlim, cur);
 
+   ReadDirectionButtons();
    GetDigInputs();
    ProcessThrottle();
    LimitThrottle();

@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.30.R-A2
+#define VER 1.31.R-A2
 
 
 /* Entries must be ordered as follows:
@@ -85,8 +85,8 @@
     VALUE_ENTRY(soh,          "%",     2053 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
     VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
-    VALUE_ENTRY(drivesel,     "dig",   2091 ) \
-    VALUE_ENTRY(invdir,        DIRS,   2092 ) \
+    VALUE_ENTRY(drivesel,     DIRS,    2091 ) \
+    VALUE_ENTRY(invdir,       DIRS,    2092 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
@@ -127,7 +127,7 @@
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
 #define INVMODES     "0=Off, 1=Run, 2=ManualRun, 3=Charge"
-#define DIRS         "0=Neutral, 1=Forward, 3=Reverse"
+#define DIRS         "0=Neutral, 1=Forward, 2=None, 3=Reverse"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define ONOFFFORCE   "0=Off, 1=On, 2=Force"
 #define OKERR        "0=Error, 1=Ok, 2=na"
@@ -182,6 +182,7 @@ enum onoffforce
 enum directions
 {
    DIR_NEUTRAL = 0,
+   DIR_NONE = 2,
    DIR_FORWARD = 1,
    DIR_REVERSE = 3
 };
