@@ -39,7 +39,7 @@ class ChaDeMo
       static void SetParkPosition(bool pos) { parkingPosition = !pos; }
       static void SetContactor(bool state) { contactorOpen = !state; }
       static void SetGeneralFault() { fault = true; }
-      static void SetVersion(uint8_t v) { version = v; }
+      static void SetVersion(uint8_t v) { version = MIN(v, chargerVersion); }
       /** Set current state of charge */
       static void SetSoC(s32fp soC) { soc = soC >> (FRAC_DIGITS - 1); }
       static int GetChargerOutputVoltage() { return chargerOutputVoltage; }
@@ -61,6 +61,7 @@ class ChaDeMo
       static bool fault;
       static bool contactorOpen;
       static uint8_t version;
+      static uint8_t chargerVersion;
       static uint8_t chargerStatus;
       static uint8_t chargerMaxCurrent;
       static uint8_t chargeCurrentRequest;

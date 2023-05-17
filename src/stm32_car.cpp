@@ -194,7 +194,7 @@ static void RunChaDeMo()
 
    if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
    {
-      //If 2s after boot we don't see voltage on the fuel sense line
+      //If 2s after boot we don't see voltage on the inverter
       //the car is off and we are in charge mode
       if (Param::GetInt(Param::udcinv) < 10)
       {
@@ -268,7 +268,7 @@ static void RunChaDeMo()
    if (chargeMode)
    {
       if (Param::GetInt(Param::batfull) ||
-          Param::Get(Param::soc) >= Param::Get(Param::soclimit) ||
+          Param::Get(Param::soc) >= Param::Get(Param::fcsoclimit) ||
           Param::GetInt(Param::chargelimit) == 0 ||
           !LeafBMS::Alive(rtc_get_counter_val()))
       {
@@ -284,6 +284,7 @@ static void RunChaDeMo()
 
       Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
+      Param::SetInt(Param::din_forward, 0);
       ChaDeMo::SendMessages(can);
    }
    Param::SetInt(Param::cdmstatus, ChaDeMo::GetChargerStatus());
@@ -642,7 +643,19 @@ static void Ms10Task(void)
    else if (chargeMode)
    {
       DigIo::vacuum_out.Set(); //Turn off vacuum pump
-      DigIo::heater_out.Clear();
+
+      //Turn on heater (or rather offgrid inverter) when SoC is sufficient
+      //There is a turn on request and DC switch is closed
+      if (Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
+          Param::GetBool(Param::heatcmd) &&
+          DigIo::dcsw_out.Get())
+      {
+         DigIo::heater_out.Set();
+      }
+      else
+      {
+         DigIo::heater_out.Clear();
+      }
    }
    else
    {
@@ -654,16 +667,18 @@ static void Ms10Task(void)
    {
       int udcbms = Param::GetInt(Param::udcbms);
       int udcobc = Param::GetInt(Param::udcobc);
+      float soc = Param::GetFloat(Param::soc);
+      float soclim = Param::GetFloat(Param::obcsoclimit);
 
       chargeMode = true;
       Param::SetInt(Param::din_forward, 0);
 
-      if (Param::Get(Param::soc) >= Param::Get(Param::soclimit))
+      if (soc >= soclim)
       {
          Param::SetInt(Param::opmode, MOD_CHARGEND);
          Param::SetInt(Param::dout_evse, 0);
       }
-      else if (udcbms > 250 && (udcbms - udcobc) < 10)
+      else if (udcbms > 250 && (udcbms - udcobc) < 10 && soc < (soclim - 1))
       {
          DigIo::dcsw_out.Set();
          Param::SetInt(Param::opmode, MOD_CHARGE);
@@ -706,15 +721,19 @@ static void Ms10Task(void)
    Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
 
    LeafBMS::Send10msMessages(can);
-   SendVag10MsMessages(power);
 
    if (!chargeMode)
    {
       Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
    }
 
-   if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
-      can->SendAll();
+   //In drive mode and when charging with OBC send messages, in CHAdeMO mode don't
+   if (!chargeMode || Param::GetBool(Param::din_charge))
+   {
+      SendVag10MsMessages(power);
+      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
+         can->SendAll();
+   }
 }
 
 static void DecodeCruiseControl(uint32_t data)

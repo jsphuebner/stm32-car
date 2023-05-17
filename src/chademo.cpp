@@ -24,6 +24,7 @@ bool ChaDeMo::parkingPosition = false;
 bool ChaDeMo::fault = false;
 bool ChaDeMo::contactorOpen = false;
 uint8_t ChaDeMo::version = 1;
+uint8_t ChaDeMo::chargerVersion = 1;
 uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
 uint32_t ChaDeMo::rampedCurReq;
@@ -44,6 +45,7 @@ void ChaDeMo::Process108Message(uint32_t data[2])
 
 void ChaDeMo::Process109Message(uint32_t data[2])
 {
+   chargerVersion = data[0] & 0xFF;
    chargerOutputVoltage = data[0] >> 8;
    chargerOutputCurrent = data[0] >> 24;
    chargerStatus = (data[1] >> 8) & 0x3F;
