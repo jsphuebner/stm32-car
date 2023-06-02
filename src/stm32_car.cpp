@@ -678,7 +678,7 @@ static void Ms10Task(void)
          Param::SetInt(Param::opmode, MOD_CHARGEND);
          Param::SetInt(Param::dout_evse, 0);
       }
-      else if (udcbms > 250 && (udcbms - udcobc) < 10 && soc < (soclim - 1))
+      else if (udcbms > 250 && (udcbms - udcobc) < 10)
       {
          DigIo::dcsw_out.Set();
          Param::SetInt(Param::opmode, MOD_CHARGE);
