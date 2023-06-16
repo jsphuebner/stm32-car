@@ -164,7 +164,7 @@ static void RunChaDeMo()
 
    if (Param::GetInt(Param::opmode) == MOD_CHARGE)
    {
-      int chargeCur = Param::GetInt(Param::chgcurlim);
+      int chargeCur = Param::GetInt(Param::chgcurlim) * 2;
       int chargeLim = Param::GetInt(Param::chargelimit);
       chargeCur = MIN(MIN(255, chargeLim), chargeCur);
       ChaDeMo::SetChargeCurrent(chargeCur);
@@ -651,6 +651,7 @@ static void Ms10Task(void)
    Param::SetFloat(Param::chgcurlim, cur);
    cur = 1000 * Param::GetFloat(Param::dislim) / udcbms;
    cur *= Param::GetFloat(Param::powerslack);
+   cur = MIN(511, cur);
    Param::SetFloat(Param::discurlim, cur);
 
    ReadDirectionButtons();
