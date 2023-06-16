@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.31.R
+#define VER 1.32.R
 
 
 /* Entries must be ordered as follows:
@@ -65,6 +65,7 @@
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2086 ) \
     VALUE_ENTRY(invmode,      OPMODES, 2000 ) \
+    VALUE_ENTRY(inverr,       "",      2096 ) \
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(cdmcureq,     "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
@@ -132,7 +133,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2096
+//Next value Id: 2097
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"

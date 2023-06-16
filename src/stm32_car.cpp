@@ -371,6 +371,15 @@ static void Ms100Task(void)
    {
       ErrorMessage::Post(ERR_BMSCOMM);
    }
+
+   int invErr = Param::GetInt(Param::inverr);
+   if (invErr > 0)
+   {
+      if (invErr == 2 || invErr == 3) //throttle errors
+         Param::SetInt(Param::errlights, 4); //EPC light
+      else //all other errors
+         Param::SetInt(Param::errlights, 8); //Engine error light
+   }
 }
 
 static void GetDigInputs()
@@ -427,15 +436,6 @@ static void ProcessThrottle()
 
    brakePressure = MAX(offPedalRegen, brakePressure);
    brakePressure = MIN(255, brakePressure);
-
-   /* hard coded throttle redundance */
-   if (pot2 > 50)
-   {
-      pot1 = MIN(pot1, pot2 * 2);
-
-      if (ABS(2 * pot2 - pot1) > 200 && pot1 < 4090)
-         Param::SetInt(Param::errlights, 4);
-   }
 
    Param::SetInt(Param::pot, pot1);
    Param::SetInt(Param::pot2, pot2);
