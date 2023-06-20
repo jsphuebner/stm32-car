@@ -262,6 +262,7 @@ static void RunChaDeMo()
    }
 
    ChaDeMo::SetTargetBatteryVoltage(Param::GetInt(Param::udclimit));
+   ChaDeMo::SetBatteryVoltage(Param::GetInt(Param::udcbms));
    ChaDeMo::SetSoC(Param::Get(Param::soc));
    Param::SetInt(Param::cdmcureq, ChaDeMo::GetRampedCurrentRequest());
 

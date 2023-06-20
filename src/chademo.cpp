@@ -29,6 +29,7 @@ uint8_t ChaDeMo::chargerMaxCurrent;
 uint8_t ChaDeMo::chargeCurrentRequest;
 uint32_t ChaDeMo::rampedCurReq;
 uint16_t ChaDeMo::targetBatteryVoltage;
+uint16_t ChaDeMo::batteryVoltage;
 uint16_t ChaDeMo::chargerOutputVoltage = 0;
 uint8_t ChaDeMo::chargerOutputCurrent = 0;
 uint8_t ChaDeMo::chargerStatus = 0;
@@ -115,6 +116,9 @@ void ChaDeMo::SendMessages(Can* can)
    //Capacity fixed to 200 - so SoC resolution is 0.5
    data[0] = 0;
    data[1] = (targetBatteryVoltage + 40) | 200 << 16;
+
+   if (chargerVersion == 10) //our CCS to CHAdeMO converter
+      data[0] = batteryVoltage;
 
    can->Send(0x100, data);
 

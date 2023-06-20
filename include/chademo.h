@@ -33,6 +33,8 @@ class ChaDeMo
       static void SendMessages(Can* can);
 
       static void SetTargetBatteryVoltage(uint16_t vtg) { targetBatteryVoltage = vtg; }
+      /** This is not part of the standard. When version 10 is reported we send battery voltage in 0x100 message */
+      static void SetBatteryVoltage(uint16_t vtg) { batteryVoltage = vtg; }
       static void SetChargeCurrent(uint8_t cur);
       static void SetEnabled(bool enabled);
       /** Set vehicle in parking position, true=yes, 0=false */
@@ -67,6 +69,7 @@ class ChaDeMo
       static uint8_t chargeCurrentRequest;
       static uint32_t rampedCurReq;
       static uint16_t targetBatteryVoltage;
+      static uint16_t batteryVoltage;
       static uint16_t chargerOutputVoltage;
       static uint8_t chargerOutputCurrent;
       static uint8_t soc;
