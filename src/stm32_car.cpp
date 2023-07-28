@@ -387,7 +387,7 @@ static void GetDigInputs()
 {
    int canio = 0;
 
-   if (Param::GetBool(Param::din_cruise))
+   if (Param::GetInt(Param::cruisestt) == CRUISE_ON)
       canio |= CAN_IO_CRUISE;
    if (Param::GetBool(Param::din_start) || DigIo::start_in.Get())
       canio |= CAN_IO_START;
