@@ -236,22 +236,7 @@ static void SetFuelGauge()
    int soc = soctest > 0 ? soctest : Param::GetInt(Param::soc);
    int targetPos = (fuelMax * soc) / 100;
 
-   if (startupDelay > 0)
-   {
-      startupDelay--;
-      int preload = Param::GetInt(Param::fueldcmin) + (Param::GetInt(Param::fueldcmax) - Param::GetInt(Param::fueldcmin)) / 2;
-      fuelGaugeController.PreloadIntegrator(preload);
-   }
-
-   if (fuelPos > fuelMax)
-   {
-      fuelGaugeController.PreloadIntegrator(500);
-   }
-   else
-   {
-      fuelGaugeController.SetRef(FP_FROMINT(fuelPos));
-   }
-
+   fuelGaugeController.SetRef(FP_FROMINT(fuelPos));
    int dc = fuelGaugeController.Run(FP_FROMINT(targetPos));
    dc *= counts;
    dc /= 1000;
@@ -753,7 +738,7 @@ extern "C" int main(void)
 
    Terminal t(USART3, termCmds);
 
-   fuelGaugeController.SetGains(5, 20);
+   fuelGaugeController.SetGains(1, 1);
    fuelGaugeController.SetCallingFrequency(100);
    fuelGaugeController.SetMinMaxY(Param::GetInt(Param::fueldcmin), Param::GetInt(Param::fueldcmax));
 
