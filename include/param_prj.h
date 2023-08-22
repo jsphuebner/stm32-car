@@ -48,7 +48,7 @@
     PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
+    PARAM_ENTRY(CAT_CONTACT,  compressor,  "",        0,      22,      0,     105 ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugefrq,    "dig",     0,      65535,65535,    107 ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugemax,    "l",       0,      100,    34,     2   ) \
     PARAM_ENTRY(CAT_GAUGE,    fueldcmin,   ".1%",     0,      1000,   400,    108 ) \

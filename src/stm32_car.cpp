@@ -251,7 +251,15 @@ static void SetFuelGauge()
 static void RunLin()
 {
    static int state = 0;
-   uint8_t data[8] = { 0xb3, 0x05, 0x00, 0x90, 0xff, 0x00, 0x00, 0x00 };
+   int compCmd = Param::GetInt(Param::compressor);
+   uint8_t data[8] = { 0xb2, 0x00, 0x00, 0x90, 0xff, 0x00, 0x00, 0x00 };
+   //b[1] = 0x05 -> 1kw,  b[1] = 0x12 -> 2kw, b[1] = 0x16 -> 3kw
+
+   if (compCmd > 0)
+   {
+      data[0] = 0xb3;
+      data[1] = compCmd;
+   }
 
    if (lin->HasReceived(33, 8))
    {
@@ -747,7 +755,7 @@ extern "C" int main(void)
 
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
-   Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
+   Param::SetInt(Param::compressor, 0); //Make sure we don't load this from flash
    Param::SetInt(Param::soc, 100); //Preload SoC for proper fuel gauge display
 
    while(1)
