@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.34.R
+#define VER 1.35.R
 
 
 /* Entries must be ordered as follows:
@@ -60,8 +60,6 @@
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    intempofs,   "dig",     0,      4095,  1700,    104 ) \
     PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
-    PARAM_ENTRY(CAT_COMM,     canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
-    PARAM_ENTRY(CAT_COMM,     canperiod,   CANPERIODS,0,      1,      0,      88  ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2086 ) \
     VALUE_ENTRY(invmode,      OPMODES, 2000 ) \
@@ -98,6 +96,7 @@
     VALUE_ENTRY(pot2,         "dig",   2016 ) \
     VALUE_ENTRY(potbrake,     "dig",   2075 ) \
     VALUE_ENTRY(brakepressure,"dig",   2074 ) \
+    VALUE_ENTRY(canctr,       "dig",   2097 ) \
     VALUE_ENTRY(vacuum,       "dig",   2018 ) \
     VALUE_ENTRY(tmpbat1,      "°C",    2078 ) \
     VALUE_ENTRY(tmpbat2,      "°C",    2088 ) \
@@ -133,7 +132,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2097
+//Next value Id: 2098
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"

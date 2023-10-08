@@ -24,6 +24,7 @@
 #include <libopencm3/stm32/rtc.h>
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
+#include <libopencm3/stm32/crc.h>
 #include "stm32_can.h"
 #include "terminal.h"
 #include "params.h"
@@ -362,8 +363,6 @@ static void Ms100Task(void)
 
    if (!chargeMode && rtc_get_counter_val() > 100)
    {
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_100MS)
-         can->SendAll();
       SendVAG100msMessage();
       SetFuelGauge();
    }
@@ -387,7 +386,7 @@ static void GetDigInputs()
 {
    int canio = 0;
 
-   if (Param::GetInt(Param::cruisestt) == CRUISE_ON)
+   if (Param::GetInt(Param::cruisestt) & CRUISE_ON)
       canio |= CAN_IO_CRUISE;
    if (Param::GetBool(Param::din_start) || DigIo::start_in.Get())
       canio |= CAN_IO_START;
@@ -433,10 +432,10 @@ static void ProcessThrottle()
    int pot1 = AnaIn::throttle1.Get();
    int pot2 = AnaIn::throttle2.Get();
    int brakePressure = Param::GetInt(Param::brakepressure);
-   int offPedalRegen = Param::GetInt(Param::regenlevel) * 60;
+   int offPedalRegen = Param::GetInt(Param::regenlevel) * 24;
 
    brakePressure = MAX(offPedalRegen, brakePressure);
-   brakePressure = MIN(255, brakePressure);
+   brakePressure = MIN(100, brakePressure);
 
    Param::SetInt(Param::pot, pot1);
    Param::SetInt(Param::pot2, pot2);
@@ -456,6 +455,26 @@ static void LimitThrottle()
 
    Param::SetFloat(Param::calcthrotmax, throtmax);
    Param::SetFloat(Param::calcthrotmin, throtmin);
+}
+
+static void SendOIControlMessage()
+{
+   uint32_t data[2];
+   uint32_t pot = Param::GetInt(Param::pot) & 0xFFF;
+   uint32_t pot2 = Param::GetInt(Param::pot2) & 0xFFF;
+   uint32_t canio = Param::GetInt(Param::canio) & 0x3F;
+   uint32_t ctr = Param::GetInt(Param::canctr) & 0x3;
+   uint32_t cruise = Param::GetInt(Param::cruisespeed) & 0x3FFF;
+   uint32_t regen = Param::GetInt(Param::potbrake) & 0x7F;
+
+   data[0] = pot | (pot2 << 12) | (canio << 24) | (ctr << 30);
+   data[1] = cruise | (ctr << 14) | (regen << 16);
+
+   crc_reset();
+   uint32_t crc = crc_calculate_block(data, 2) & 0xFF;
+   data[1] |= crc << 24;
+
+   can->Send(63, data);
 }
 
 static void SendVag10MsMessages(float power)
@@ -732,8 +751,9 @@ static void Ms10Task(void)
    if (!chargeMode || Param::GetBool(Param::din_charge))
    {
       SendVag10MsMessages(power);
-      if (Param::GetInt(Param::canperiod) == CAN_PERIOD_10MS)
-         can->SendAll();
+      Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);
+      SendOIControlMessage();
+      can->SendAll();
    }
 }
 
