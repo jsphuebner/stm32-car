@@ -16,7 +16,7 @@
 		</MakeCommands>
 		<Build>
 			<Target title="STM32F103">
-				<Option output="stm32_sine" prefix_auto="0" extension_auto="0" />
+				<Option output="stm32_car" prefix_auto="0" extension_auto="0" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
 				<Option compiler="armelfgcc" />
@@ -57,6 +57,10 @@
 		<Unit filename="include/param_prj.h" />
 		<Unit filename="include/throttle.h" />
 		<Unit filename="libopeninv/include/anain.h" />
+		<Unit filename="libopeninv/include/canhardware.h" />
+		<Unit filename="libopeninv/include/canmap.h" />
+		<Unit filename="libopeninv/include/canobd2.h" />
+		<Unit filename="libopeninv/include/cansdo.h" />
 		<Unit filename="libopeninv/include/crc8.h" />
 		<Unit filename="libopeninv/include/delay.h" />
 		<Unit filename="libopeninv/include/digio.h" />
@@ -78,6 +82,10 @@
 		<Unit filename="libopeninv/include/terminal.h" />
 		<Unit filename="libopeninv/include/terminalcommands.h" />
 		<Unit filename="libopeninv/src/anain.cpp" />
+		<Unit filename="libopeninv/src/canhardware.cpp" />
+		<Unit filename="libopeninv/src/canmap.cpp" />
+		<Unit filename="libopeninv/src/canobd2.cpp" />
+		<Unit filename="libopeninv/src/cansdo.cpp" />
 		<Unit filename="libopeninv/src/crc8.cpp" />
 		<Unit filename="libopeninv/src/digio.cpp" />
 		<Unit filename="libopeninv/src/errormessage.cpp" />
@@ -120,7 +128,7 @@
 			</DoxyBlocks>
 			<debugger>
 				<remote_debugging target="STM32F103">
-					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" additional_cmds="load&#x0A;r" />
+					<options conn_type="0" ip_address="localhost" ip_port="3333" additional_cmds="load&#x0A;r" />
 				</remote_debugging>
 			</debugger>
 		</Extensions>
