@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 112
+//Next param id (increase when adding new parameter!): 115
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
@@ -50,16 +50,16 @@
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcresume,  "V",       10,     15,     12.5,   108 ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcutoff,   "A",       0,     150,     15,     109 ) \
-    PARAM_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      0   ) \
-    PARAM_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      0   ) \
+    TESTP_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      112 ) \
+    TESTP_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      113 ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
-    PARAM_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
+    TESTP_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
     PARAM_ENTRY(CAT_GAUGE,    intempofs,   "dig",     0,      4095,  1700,    104 ) \
-    PARAM_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      0   ) \
+    TESTP_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      114 ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2086 ) \
     VALUE_ENTRY(invmode,      OPMODES, 2000 ) \
@@ -67,7 +67,7 @@
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(cdmcureq,     "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
-    VALUE_ENTRY(lbcdtc,       "",      2050 ) \
+    VALUE_ENTRY(lbcdtc,       "",      2098 ) \
     VALUE_ENTRY(chgtime,      "min",   2079 ) \
     VALUE_ENTRY(batfull,      ONOFF,   2069 ) \
     VALUE_ENTRY(batmin,       "mV",    2044 ) \
@@ -132,7 +132,7 @@
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
 
-//Next value Id: 2098
+//Next value Id: 2099
 
 #define VERSTR STRINGIFY(4=VER)
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"

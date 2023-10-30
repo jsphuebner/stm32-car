@@ -156,7 +156,7 @@ void LeafBMS::DecodeCAN(int id, uint32_t data[2], uint32_t time)
    }
 }
 
-void LeafBMS::RequestNextFrame(Can* can)
+void LeafBMS::RequestNextFrame(CanHardware* can)
 {
    uint32_t canData[2] = { 0, 0xffffffff };
 
@@ -254,7 +254,7 @@ int LeafBMS::GetCellStatus(int idx)
    return -1;
 }
 
-void LeafBMS::Send10msMessages(Can* can)
+void LeafBMS::Send10msMessages(CanHardware* can)
 {
    uint32_t canData[2] = { 0, 0 };
    int relay = Param::GetInt(Param::opmode) != MOD_OFF;
@@ -279,7 +279,7 @@ void LeafBMS::Send10msMessages(Can* can)
    run10ms = (run10ms + 1) & 3;
 }
 
-void LeafBMS::Send100msMessages(Can* can)
+void LeafBMS::Send100msMessages(CanHardware* can)
 {
    uint32_t canData[2] = { 0, 0 };
    uint8_t crc;

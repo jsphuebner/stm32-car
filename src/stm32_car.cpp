@@ -26,6 +26,9 @@
 #include <libopencm3/stm32/iwdg.h>
 #include <libopencm3/stm32/crc.h>
 #include "stm32_can.h"
+#include "canmap.h"
+#include "cansdo.h"
+#include "canobd2.h"
 #include "terminal.h"
 #include "params.h"
 #include "hwdefs.h"
@@ -39,6 +42,7 @@
 #include "stm32scheduler.h"
 #include "leafbms.h"
 #include "chademo.h"
+#include "terminalcommands.h"
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
@@ -49,7 +53,8 @@ HWREV hwRev; //Hardware variant of board we are running on
 
 static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
-static Can* can;
+static CanHardware* can;
+static CanMap* canMap;
 static int ignitionTimeout = 0;
 
 static void Ms500Task(void)
@@ -753,7 +758,7 @@ static void Ms10Task(void)
       SendVag10MsMessages(power);
       Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);
       SendOIControlMessage();
-      can->SendAll();
+      canMap->SendAll();
    }
 }
 
@@ -785,7 +790,7 @@ extern void Param::Change(Param::PARAM_NUM paramNum)
    paramNum = paramNum;
 }
 
-static void CanCallback(uint32_t id, uint32_t data[2])
+static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
 {
    int tmpdcdc[3];
    switch (id)
@@ -810,12 +815,29 @@ static void CanCallback(uint32_t id, uint32_t data[2])
       ignitionTimeout = 10;
       break;
    case 0x38A:
-      DecodeCruiseControl(data[0]);
+      if (4 == dlc)
+         DecodeCruiseControl(data[0]);
       break;
    default:
       LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
       break;
    }
+   return false;
+}
+
+static void HandleClear()
+{
+   can->RegisterUserMessage(0x7BB);
+   can->RegisterUserMessage(0x1DB);
+   can->RegisterUserMessage(0x1DC);
+   can->RegisterUserMessage(0x55B);
+   can->RegisterUserMessage(0x5BC);
+   can->RegisterUserMessage(0x5C0);
+   can->RegisterUserMessage(0x108);
+   can->RegisterUserMessage(0x109);
+   can->RegisterUserMessage(0x420);
+   can->RegisterUserMessage(0x377);
+   can->RegisterUserMessage(0x38A);
 }
 
 static void ConfigureVariantIO()
@@ -843,23 +865,21 @@ extern "C" int main(void)
    nvic_setup();
    parm_load();
 
-   Can c(CAN1, Can::Baud500);
-
-   c.SetNodeId(2);
-   c.SetReceiveCallback(CanCallback);
-   c.RegisterUserMessage(0x7BB);
-   c.RegisterUserMessage(0x1DB);
-   c.RegisterUserMessage(0x1DC);
-   c.RegisterUserMessage(0x55B);
-   c.RegisterUserMessage(0x5BC);
-   c.RegisterUserMessage(0x5C0);
-   c.RegisterUserMessage(0x108);
-   c.RegisterUserMessage(0x109);
-   c.RegisterUserMessage(0x420);
-   c.RegisterUserMessage(0x377);
-   c.RegisterUserMessage(0x38A);
+   Stm32Can c(CAN1, CanHardware::Baud500);
+   FunctionPointerCallback cb(CanCallback, HandleClear);
 
    can = &c;
+   //c.SetNodeId(2);
+   c.AddCallback(&cb);
+   CanMap cm(&c);
+   CanObd2 obd2(&c);
+   CanSdo sdo(&c, &cm);
+   TerminalCommands::SetCanMap(&cm);
+   HandleClear();
+   obd2.SetNodeId(2);
+   sdo.SetNodeId(2);
+
+   canMap = &cm;
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
@@ -872,7 +892,7 @@ extern "C" int main(void)
 
    Param::SetInt(Param::version, 4); //COM protocol version 4
    Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
-   Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
+   //Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
 
    while(1)
       t.Run();

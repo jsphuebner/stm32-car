@@ -107,7 +107,7 @@ bool ChaDeMo::IsCanTimeout()
    return canTimeout == 0;
 }
 
-void ChaDeMo::SendMessages(Can* can)
+void ChaDeMo::SendMessages(CanHardware* can)
 {
    uint32_t data[2];
    bool curSensFault = curTimeout > 10;

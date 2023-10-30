@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include "my_math.h"
 #include "my_fp.h"
-#include "stm32_can.h"
+#include "canhardware.h"
 
 class ChaDeMo
 {
@@ -30,7 +30,7 @@ class ChaDeMo
       static void Process108Message(uint32_t data[2]);
       static void Process109Message(uint32_t data[2]);
       /** Must be called every 100ms */
-      static void SendMessages(Can* can);
+      static void SendMessages(CanHardware* can);
 
       static void SetTargetBatteryVoltage(uint16_t vtg) { targetBatteryVoltage = vtg; }
       /** This is not part of the standard. When version 10 is reported we send battery voltage in 0x100 message */
