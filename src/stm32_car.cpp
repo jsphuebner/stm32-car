@@ -44,10 +44,8 @@
 #include "chademo.h"
 #include "terminalcommands.h"
 
-#define RMS_SAMPLES 256
-#define SQRT2OV1 0.707106781187
-#define PRECHARGE_TIMEOUT 500 //5s
 #define CAN_TIMEOUT       50  //500ms
+#define PRINT_JSON 0
 
 HWREV hwRev; //Hardware variant of board we are running on
 
@@ -335,6 +333,8 @@ static void SetFuelGauge()
 
 static void Ms100Task(void)
 {
+   static uint32_t uptime = 0;
+
    DigIo::led_out.Toggle();
    iwdg_reset();
    float cpuLoad = scheduler->GetCpuLoad();
@@ -385,6 +385,12 @@ static void Ms100Task(void)
       else //all other errors
          Param::SetInt(Param::errlights, 8); //Engine error light
    }
+
+   Param::SetInt(Param::canrec, CAN_ESR(CAN1) >> 24);
+   Param::SetInt(Param::cantec, (CAN_ESR(CAN1) >> 16) & 0xff);
+   Param::SetInt(Param::canlec, (CAN_ESR(CAN1) >> 4) & 0x7);
+   Param::SetInt(Param::canerr, CAN_ESR(CAN1) & 0x7);
+   Param::SetInt(Param::uptime, uptime++);
 }
 
 static void GetDigInputs()
@@ -872,11 +878,9 @@ extern "C" int main(void)
    //c.SetNodeId(2);
    c.AddCallback(&cb);
    CanMap cm(&c);
-   CanObd2 obd2(&c);
    CanSdo sdo(&c, &cm);
    TerminalCommands::SetCanMap(&cm);
    HandleClear();
-   obd2.SetNodeId(2);
    sdo.SetNodeId(2);
 
    canMap = &cm;
@@ -895,7 +899,14 @@ extern "C" int main(void)
    //Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
 
    while(1)
+   {
+      char c = 0;
       t.Run();
+      if (sdo.GetPrintRequest() == PRINT_JSON)
+      {
+         TerminalCommands::PrintParamsJson(&sdo, &c);
+      }
+   }
 
    return 0;
 }

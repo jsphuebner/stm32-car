@@ -131,10 +131,17 @@
     VALUE_ENTRY(handbrk,      ONOFF,   2071 ) \
     VALUE_ENTRY(espoff,       ONOFF,   2077 ) \
     VALUE_ENTRY(cpuload,      "%",     2035 ) \
+    VALUE_ENTRY(canrec,       "",      2100 ) \
+    VALUE_ENTRY(cantec,       "",      2101 ) \
+    VALUE_ENTRY(canlec,       LEC,      2102 ) \
+    VALUE_ENTRY(canerr,       LEC,      2103 ) \
+    VALUE_ENTRY(uptime,       "",      2104 ) \
 
 //Next value Id: 2099
 
 #define VERSTR STRINGIFY(4=VER)
+#define LEC          "0=Ok, 1=Stuff, 2=Form, 3=Ack, 4=Recessive, 5=Dominant, 6=Crc, 7=Sw"
+#define CERR         "0=None, 1=ErrorWarning, 2=ErrorPassive, 4=BusOff"
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
 #define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
