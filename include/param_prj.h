@@ -35,7 +35,7 @@
     PARAM_ENTRY(CAT_CRUISE,   cruiserampdn,"rpm/100ms",1,     1000,   20,     11  ) \
     PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101 ) \
     PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    5,      1.1,    4   ) \
-    PARAM_ENTRY(CAT_POWER,    bmsoverride, ONOFF,     0,      1,      0,      110 ) \
+    PARAM_ENTRY(CAT_POWER,    balance,     ONOFF,     0,      1,      0,      110 ) \
     PARAM_ENTRY(CAT_POWER,    chargelimit, "A",       0,      255,    255,    10  ) \
     PARAM_ENTRY(CAT_POWER,    obclimit,    "A",       0,      255,    12,     107 ) \
     PARAM_ENTRY(CAT_POWER,    obcsoclimit, "%",       0,      100,    100,    12  ) \
@@ -101,6 +101,11 @@
     VALUE_ENTRY(tmpbat1,      "°C",    2078 ) \
     VALUE_ENTRY(tmpbat2,      "°C",    2088 ) \
     VALUE_ENTRY(tmpbat3,      "°C",    2089 ) \
+    VALUE_ENTRY(tmpbat4,      "°C",    2105 ) \
+    VALUE_ENTRY(tmpbat5,      "°C",    2106 ) \
+    VALUE_ENTRY(tmpbat6,      "°C",    2107 ) \
+    VALUE_ENTRY(tmpbat7,      "°C",    2108 ) \
+    VALUE_ENTRY(tmpbat8,      "°C",    2109 ) \
     VALUE_ENTRY(tmphs,        "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
@@ -137,7 +142,7 @@
     VALUE_ENTRY(canerr,       LEC,      2103 ) \
     VALUE_ENTRY(uptime,       "",      2104 ) \
 
-//Next value Id: 2099
+//Next value Id: 2110
 
 #define VERSTR STRINGIFY(4=VER)
 #define LEC          "0=Ok, 1=Stuff, 2=Form, 3=Ack, 4=Recessive, 5=Dominant, 6=Crc, 7=Sw"

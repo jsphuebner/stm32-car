@@ -65,7 +65,7 @@ static void PrintVoltages(Terminal* term, char* arg)
 
    for (int i = 0; i < MebBms::NumCells; i++)
    {
-      printf("%d: %d\r\n", i, mebBms->GetCellVoltage(i));
+      printf("%d: %d, %d\r\n", i, mebBms->GetCellVoltage(i), mebBms->GetBalanceFlag(i));
    }
 }
 

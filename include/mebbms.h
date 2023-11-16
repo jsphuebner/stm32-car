@@ -30,7 +30,9 @@ class MebBms : public CanCallback
       bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void HandleClear();
       uint16_t GetCellVoltage(int idx) { return cellVoltages[idx]; }
-      bool Alive(uint32_t time) { return true; }
+      bool GetBalanceFlag(int idx) { return (balFlags[idx / CellsPerCmu] & 1 << (idx % CellsPerCmu)) > 0; }
+      void Balance();
+      bool Alive(uint32_t time);
       static const int NumCells = 96;
 
    protected:
@@ -39,9 +41,11 @@ class MebBms : public CanCallback
       void Accumulate();
 
       CanHardware* canHardware;
+      static const int CellsPerCmu = 12;
       uint16_t cellVoltages[NumCells];
-      uint8_t temps[NumCells / 12];
-
+      uint16_t balFlags[NumCells / CellsPerCmu];
+      uint8_t temps[NumCells / CellsPerCmu];
+      uint32_t lastReceived[NumCells / CellsPerCmu];
 };
 
 #endif // MEBBMS_H

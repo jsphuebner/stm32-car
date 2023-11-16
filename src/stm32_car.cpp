@@ -91,6 +91,7 @@ static void Ms500Task(void)
 
    regenLevelLast = Param::GetInt(Param::regenlevel);
    modeLast = mode;
+   mebBms->Balance();
 }
 
 static void ProcessCruiseControlButtons()
@@ -561,66 +562,6 @@ static void SwitchDcDcConverter()
    }
 }
 
-static void CalcBatteryCurrentLimits()
-{
-   float cur = (1000 * Param::GetFloat(Param::chglim)) / Param::GetFloat(Param::udcbms);
-   float soc = Param::GetFloat(Param::soc);
-   float tmpbat1 = Param::GetFloat(Param::tmpbat1);
-   float tmpbat2 = Param::GetFloat(Param::tmpbat2);
-   float tmpbat3 = Param::GetFloat(Param::tmpbat3);
-   float tmpbatMin = MIN(MIN(tmpbat1, tmpbat2), tmpbat3);
-   float tmpbatMax = MAX(MAX(tmpbat1, tmpbat2), tmpbat3);
-   bool tmpLim = (Param::GetInt(Param::limreason) & 3) == 3;
-   bool bmsOverride = Param::GetBool(Param::bmsoverride);
-   bool highTempDiff = bmsOverride && tmpLim && tmpbatMax < 56 && tmpbatMin < 45 && tmpbatMin > 23;
-
-   if (Param::GetBool(Param::din_charge))
-   {
-      if (DigIo::dcsw_out.Get() && mebBms->Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
-      {
-         float chargeLimit = Param::GetFloat(Param::chargelimit);
-         float obclimit = Param::GetFloat(Param::obclimit);
-
-         cur = MIN(cur, chargeLimit);
-         cur = MIN(cur, obclimit);
-      }
-      else
-      {
-         cur = 0;
-      }
-   }
-   else
-   {
-      //CHAdeMO or normal operation
-      //If temperature difference between the three sensors is too high
-      //BMS will kick in a ridiculous power limit. Let ignore that
-      if (highTempDiff)
-      {
-         //125A up to 60%
-         if (soc < 60)
-            cur = 125;
-         //Taper off  with 3.2 A/% between 60 and 80%
-         else if (soc < 80)
-            cur = 125.0f - 64.0f * (soc - 60.0f) / 20.0f;
-         //Above 80% use stock BMS limit
-      }
-      cur *= Param::GetFloat(Param::powerslack);
-   }
-
-   Param::SetFloat(Param::chgcurlim, cur);
-
-   //Calc discharge current limit
-   cur = (1000 * Param::GetFloat(Param::dislim)) / Param::GetFloat(Param::udcbms);
-
-   //Avoid silly power limit on large temperature difference between 3 sensors
-   if (highTempDiff && soc > 20)
-   {
-      cur = 125000.0f / Param::GetFloat(Param::udcbms);
-   }
-   cur *= Param::GetFloat(Param::powerslack);
-   Param::SetFloat(Param::discurlim, cur);
-}
-
 static void Ms10Task(void)
 {
    int vacuumthresh = Param::GetInt(Param::vacuumthresh);
@@ -740,7 +681,6 @@ static void Ms10Task(void)
       Param::SetInt(Param::din_forward, !chargeMode);
    }
 
-   CalcBatteryCurrentLimits();
    GetDigInputs();
    ProcessThrottle();
    LimitThrottle();
