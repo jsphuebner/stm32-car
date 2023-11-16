@@ -16,33 +16,32 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef LEAFBMS_H
-#define LEAFBMS_H
-#include <stdint.h>
-#include "my_fp.h"
+#ifndef MEBBMS_H
+#define MEBBMS_H
+
 #include "canhardware.h"
 
-class LeafBMS
+
+class MebBms : public CanCallback
 {
    public:
-      static void DecodeCAN(int id, uint32_t data[2], uint32_t time);
-      static void RequestNextFrame(CanHardware* can);
-      static uint16_t GetCellVoltage(int idx);
-      static int GetCellStatus(int idx);
-      static void Send10msMessages(CanHardware* can);
-      static void Send100msMessages(CanHardware* can);
-      static bool Alive(uint32_t time);
-      static const int NUMCELLS = 96;
+      /** Default constructor */
+      MebBms(CanHardware* c);
+      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
+      void HandleClear();
+      uint16_t GetCellVoltage(int idx) { return cellVoltages[idx]; }
+      bool Alive(uint32_t time) { return true; }
+      static const int NumCells = 96;
+
+   protected:
 
    private:
-      static uint8_t Crc8ForHCM(int n, uint8_t *msg);
-      static int bmsGrp;
-      static int bmsGrpIndex;
-      static uint8_t voltBytes[NUMCELLS * 2];
-      static uint8_t statusBits[NUMCELLS / 4];
-      static uint8_t run10ms;
-      static uint8_t run100ms;
-      static uint32_t lastRecv;
+      void Accumulate();
+
+      CanHardware* canHardware;
+      uint16_t cellVoltages[NumCells];
+      uint8_t temps[NumCells / 12];
+
 };
 
-#endif // LEAFBMS_H
+#endif // MEBBMS_H

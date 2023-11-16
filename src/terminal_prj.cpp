@@ -28,7 +28,7 @@
 #include "param_save.h"
 #include "errormessage.h"
 #include "stm32_can.h"
-#include "leafbms.h"
+#include "mebbms.h"
 #include "terminalcommands.h"
 
 static void PrintVoltages(Terminal* term, char* arg);
@@ -36,6 +36,8 @@ static void LoadDefaults(Terminal* term, char *arg);
 static void GetAll(Terminal* term, char *arg);
 static void PrintSerial(Terminal* term, char *arg);
 static void PrintErrors(Terminal* term, char *arg);
+
+extern MebBms* mebBms;
 
 extern "C" const TERM_CMD termCmds[] =
 {
@@ -61,9 +63,9 @@ static void PrintVoltages(Terminal* term, char* arg)
    term = term;
    arg = arg;
 
-   for (int i = 0; i < LeafBMS::NUMCELLS; i++)
+   for (int i = 0; i < MebBms::NumCells; i++)
    {
-      printf("%d: %d, Shunt Flag: %d\r\n", i, LeafBMS::GetCellVoltage(i), LeafBMS::GetCellStatus(i));
+      printf("%d: %d\r\n", i, mebBms->GetCellVoltage(i));
    }
 }
 

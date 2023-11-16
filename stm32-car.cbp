@@ -53,7 +53,7 @@
 		<Unit filename="include/errormessage_prj.h" />
 		<Unit filename="include/hwdefs.h" />
 		<Unit filename="include/hwinit.h" />
-		<Unit filename="include/leafbms.h" />
+		<Unit filename="include/mebbms.h" />
 		<Unit filename="include/param_prj.h" />
 		<Unit filename="include/throttle.h" />
 		<Unit filename="libopeninv/include/anain.h" />
@@ -109,7 +109,7 @@
 		<Unit filename="libopeninv/src/terminalcommands.cpp" />
 		<Unit filename="src/chademo.cpp" />
 		<Unit filename="src/hwinit.cpp" />
-		<Unit filename="src/leafbms.cpp" />
+		<Unit filename="src/mebbms.cpp" />
 		<Unit filename="src/stm32_car.cpp" />
 		<Unit filename="src/terminal_prj.cpp" />
 		<Unit filename="src/throttle.cpp" />

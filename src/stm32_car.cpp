@@ -40,7 +40,7 @@
 #include "errormessage.h"
 #include "printf.h"
 #include "stm32scheduler.h"
-#include "leafbms.h"
+#include "mebbms.h"
 #include "chademo.h"
 #include "terminalcommands.h"
 
@@ -53,6 +53,7 @@ static Stm32Scheduler* scheduler;
 static bool chargeMode = false;
 static CanHardware* can;
 static CanMap* canMap;
+MebBms* mebBms;
 static int ignitionTimeout = 0;
 
 static void Ms500Task(void)
@@ -275,9 +276,9 @@ static void RunChaDeMo()
       if (Param::GetInt(Param::batfull) ||
           Param::Get(Param::soc) >= Param::Get(Param::fcsoclimit) ||
           Param::GetInt(Param::chargelimit) == 0 ||
-          !LeafBMS::Alive(rtc_get_counter_val()))
+          !mebBms->Alive(rtc_get_counter_val()))
       {
-         if (!LeafBMS::Alive(rtc_get_counter_val()))
+         if (!mebBms->Alive(rtc_get_counter_val()))
          {
             ChaDeMo::SetGeneralFault();
          }
@@ -342,10 +343,10 @@ static void Ms100Task(void)
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
 
-   LeafBMS::RequestNextFrame(can);
-   LeafBMS::Send100msMessages(can);
+   //LeafBMS::RequestNextFrame(can);
+   //LeafBMS::Send100msMessages(can);
 
-   if (!LeafBMS::Alive(rtc_get_counter_val()))
+   if (!mebBms->Alive(rtc_get_counter_val()))
    {
       Param::SetInt(Param::chgcurlim, 0);
       Param::SetInt(Param::chglim, 0);
@@ -372,7 +373,7 @@ static void Ms100Task(void)
       SetFuelGauge();
    }
 
-   if (!LeafBMS::Alive(rtc_get_counter_val()))
+   if (!mebBms->Alive(rtc_get_counter_val()))
    {
       ErrorMessage::Post(ERR_BMSCOMM);
    }
@@ -575,7 +576,7 @@ static void CalcBatteryCurrentLimits()
 
    if (Param::GetBool(Param::din_charge))
    {
-      if (DigIo::dcsw_out.Get() && LeafBMS::Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
+      if (DigIo::dcsw_out.Get() && mebBms->Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
       {
          float chargeLimit = Param::GetFloat(Param::chargelimit);
          float obclimit = Param::GetFloat(Param::obclimit);
@@ -751,7 +752,7 @@ static void Ms10Task(void)
    Param::SetInt(Param::vacuum, vacuum);
    Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
 
-   LeafBMS::Send10msMessages(can);
+   //LeafBMS::Send10msMessages(can);
 
    if (!chargeMode)
    {
@@ -825,7 +826,7 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
          DecodeCruiseControl(data[0]);
       break;
    default:
-      LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
+      //LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
       break;
    }
    return false;
@@ -833,12 +834,6 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
 
 static void HandleClear()
 {
-   can->RegisterUserMessage(0x7BB);
-   can->RegisterUserMessage(0x1DB);
-   can->RegisterUserMessage(0x1DC);
-   can->RegisterUserMessage(0x55B);
-   can->RegisterUserMessage(0x5BC);
-   can->RegisterUserMessage(0x5C0);
    can->RegisterUserMessage(0x108);
    can->RegisterUserMessage(0x109);
    can->RegisterUserMessage(0x420);
@@ -879,11 +874,13 @@ extern "C" int main(void)
    c.AddCallback(&cb);
    CanMap cm(&c);
    CanSdo sdo(&c, &cm);
+   MebBms mb(&c);
    TerminalCommands::SetCanMap(&cm);
    HandleClear();
    sdo.SetNodeId(2);
 
    canMap = &cm;
+   mebBms = &mb;
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
