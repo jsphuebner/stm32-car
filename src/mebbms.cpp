@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+/* This code is based on Tom's VWBms implementation: https://github.com/Tom-evnut/VW-bms */
 #include "mebbms.h"
 #include "params.h"
 #include "my_math.h"
@@ -24,7 +25,7 @@
 
 
 MebBms::MebBms(CanHardware* c)
-: canHardware(c)
+: canHardware(c), balancerRunning(false)
 {
    for (int i = 0; i < NumCells; i++)
       cellVoltages[i] = 0;
@@ -45,6 +46,7 @@ void MebBms::HandleClear()
    //We just talk to the larger 48 cell CMUs and ignore the smaller 12 cell one at 1B0
    canHardware->RegisterUserMessage(0x1C0, 0x7F0);
    canHardware->RegisterUserMessage(0x1D0, 0x7F0);
+   //These messages contain one temperature per CMU
    canHardware->RegisterUserMessage(0x1A5555F4);
    canHardware->RegisterUserMessage(0x1A5555F5);
    canHardware->RegisterUserMessage(0x1A5555F6);
@@ -59,7 +61,7 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (canId >= FIRST_VTG_ID && canId <= 0x1DF)
    {
-      if ((canId & 3) != 3) //every 4th message contains data we don't need
+      if ((canId & 3) != 3 && !balancerRunning) //every 4th message contains data we don't need
       {
          //every message contains 4 voltages. Here we calculate which group we are in.
          //Every 4th message is not relevant to us and must be excluded from this calculation
@@ -99,7 +101,9 @@ void MebBms::Balance()
    const uint16_t balMin = 3800;
    uint16_t minVtg = Param::GetInt(Param::batmin);
    uint8_t balCmds[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFE, 0xFE, 0xFE, 0xFE };
-   bool balance = Param::GetBool(Param::balance);
+   bool balance = Param::GetBool(Param::balance) && !balancerRunning; //toggle balancing for accurate cell voltage measurement
+
+   if (!balancerRunning) balancerRunning = Param::GetBool(Param::balance);
 
    for (int i = 0; i < NumCells; i++)
    {
@@ -107,7 +111,7 @@ void MebBms::Balance()
       const int cell = i % CellsPerCmu;
       const bool balFlag = (cellVoltages[i] > (minVtg + balHyst)) && (cellVoltages[i] > balMin);
 
-      balCmds[cell] = balFlag & balance ? 0x8 : 0x0;
+      balCmds[cell] = balFlag && balance ? 0x8 : 0x0;
 
       if (cell == 0) balFlags[group] = 0;
       balFlags[group] |= balFlag << cell;
@@ -123,6 +127,8 @@ void MebBms::Balance()
          canHardware->Send(canId, (uint32_t*)&balCmds[8]);
       }
    }
+
+   balancerRunning = balance;
 }
 
 bool MebBms::Alive(uint32_t time)

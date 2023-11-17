@@ -44,8 +44,9 @@ class MebBms : public CanCallback
       static const int CellsPerCmu = 12;
       uint16_t cellVoltages[NumCells];
       uint16_t balFlags[NumCells / CellsPerCmu];
-      uint8_t temps[NumCells / CellsPerCmu];
+      float temps[NumCells / CellsPerCmu];
       uint32_t lastReceived[NumCells / CellsPerCmu];
+      bool balancerRunning;
 };
 
 #endif // MEBBMS_H
