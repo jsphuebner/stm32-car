@@ -39,6 +39,7 @@ class MebBms : public CanCallback
 
    private:
       void Accumulate();
+      void SetCellVoltage(int idx, float vtg);
 
       CanHardware* canHardware;
       static const int CellsPerCmu = 12;
@@ -47,6 +48,7 @@ class MebBms : public CanCallback
       float temps[NumCells / CellsPerCmu];
       uint32_t lastReceived[NumCells / CellsPerCmu];
       bool balancerRunning;
+      uint8_t balCounter;
 };
 
 #endif // MEBBMS_H
