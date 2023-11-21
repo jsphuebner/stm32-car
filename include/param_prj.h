@@ -34,7 +34,6 @@
     PARAM_ENTRY(CAT_CRUISE,   cruiserampup,"rpm/100ms",1,     1000,   20,     9   ) \
     PARAM_ENTRY(CAT_CRUISE,   cruiserampdn,"rpm/100ms",1,     1000,   20,     11  ) \
     PARAM_ENTRY(CAT_CRUISE,   regenlevel,  "",        0,      3,      2,      101 ) \
-    PARAM_ENTRY(CAT_POWER,    powerslack,  "",        0.1,    5,      1.1,    4   ) \
     PARAM_ENTRY(CAT_POWER,    balance,     ONOFF,     0,      1,      0,      110 ) \
     PARAM_ENTRY(CAT_POWER,    chargelimit, "A",       0,      255,    255,    10  ) \
     PARAM_ENTRY(CAT_POWER,    obclimit,    "A",       0,      255,    12,     107 ) \
@@ -78,8 +77,7 @@
     VALUE_ENTRY(udccdm,       "V",     2068 ) \
     VALUE_ENTRY(udcobc,       "V",     2091 ) \
     VALUE_ENTRY(uacobc,       "V",     2092 ) \
-    VALUE_ENTRY(chglim,       "kW",    2049 ) \
-    VALUE_ENTRY(dislim,       "kW",    2050 ) \
+    VALUE_ENTRY(bmschglim,    "A",     2049 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(discurlim,    "A",     2082 ) \

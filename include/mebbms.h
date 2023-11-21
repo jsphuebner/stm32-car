@@ -29,9 +29,16 @@ class MebBms : public CanCallback
       MebBms(CanHardware* c);
       bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void HandleClear();
-      uint16_t GetCellVoltage(int idx) { return cellVoltages[idx]; }
+      uint16_t GetCellVoltage(int idx) const { return cellVoltages[idx]; }
+      float GetModuleTemperature(int idx) const { return temps[idx]; }
       bool GetBalanceFlag(int idx) { return (balFlags[idx / CellsPerCmu] & 1 << (idx % CellsPerCmu)) > 0; }
-      void Balance();
+      float GetMaximumChargeCurrent();
+      float GetMaximumDischargeCurrent();
+      uint16_t GetMinCellVoltage() { return minCellVoltage; }
+      uint16_t GetMaxCellVoltage() { return maxCellVoltage; }
+      float GetAvgCellVoltage() { return totalVoltage / NumCells; }
+      float GetTotalVoltage() { return totalVoltage / 1000.0f; }
+      void Balance(bool enable);
       bool Alive(uint32_t time);
       static const int NumCells = 96;
 
@@ -40,12 +47,19 @@ class MebBms : public CanCallback
    private:
       void Accumulate();
       void SetCellVoltage(int idx, float vtg);
+      float LowTempDerating();
+      float HighTempDerating();
 
       CanHardware* canHardware;
       static const int CellsPerCmu = 12;
       uint16_t cellVoltages[NumCells];
       uint16_t balFlags[NumCells / CellsPerCmu];
+      uint16_t maxCellVoltage;
+      uint16_t minCellVoltage;
+      float totalVoltage;
       float temps[NumCells / CellsPerCmu];
+      float lowTemp;
+      float highTemp;
       uint32_t lastReceived[NumCells / CellsPerCmu];
       bool balancerRunning;
       uint8_t balCounter;

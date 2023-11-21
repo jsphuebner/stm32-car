@@ -18,7 +18,6 @@
  */
 /* This code is based on Tom's VWBms implementation: https://github.com/Tom-evnut/VW-bms */
 #include "mebbms.h"
-#include "params.h"
 #include "my_math.h"
 
 #define FIRST_VTG_ID    0x1C0
@@ -57,11 +56,6 @@ void MebBms::HandleClear()
    canHardware->RegisterUserMessage(0x1A5555FB);
 }
 
-void MebBms::SetCellVoltage(int idx, float vtg)
-{
-   cellVoltages[idx] = IIRFILTERF((float)cellVoltages[idx], vtg, 2) + 0.5f;
-}
-
 bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (canId >= FIRST_VTG_ID && canId <= 0x1DF)
@@ -86,27 +80,83 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
    {
       int cmu = (canId & 0xF) - 4;
       temps[cmu] = ((data[1] >> 4) & 0xFF) * 0.5f - 40;
-      Param::SetFloat(Param::tmpbat1, temps[0]);
-      Param::SetFloat(Param::tmpbat2, temps[1]);
-      Param::SetFloat(Param::tmpbat3, temps[2]);
-      Param::SetFloat(Param::tmpbat4, temps[3]);
-      Param::SetFloat(Param::tmpbat5, temps[4]);
-      Param::SetFloat(Param::tmpbat6, temps[5]);
-      Param::SetFloat(Param::tmpbat7, temps[6]);
-      Param::SetFloat(Param::tmpbat8, temps[7]);
       lastReceived[cmu] = canHardware->GetLastRxTimestamp();
+
+      if (cmu == 0)
+      {
+         float min = 100.0f, max = -100.0f;
+
+         for (int i = 0; i < 8; i++)
+         {
+            min = MIN(min, temps[i]);
+            max = MAX(max, temps[i]);
+         }
+         lowTemp = min;
+         highTemp = max;
+      }
       return true;
    }
    return false;
 }
 
-void MebBms::Balance()
+float MebBms::GetMaximumChargeCurrent()
+{
+   const float lowTempDerate = LowTempDerating();
+   const float highTempDerate = HighTempDerating();
+   const float cc1Current = 275.0f * lowTempDerate;
+   const uint16_t cv1Voltage = 3950;
+   const float cc2Current = 170.0f * lowTempDerate;
+   const uint16_t cv2Voltage = 4050;
+   const float cc3Current = 114.0f * lowTempDerate;
+   const uint16_t cv3Voltage = 4200;
+   float result;
+
+   /* Here we try to mimic VWs charge curve for a warm battery.
+    *
+    * We run 3 subsequent CC-CV curves
+    * 1st starts at cc1Current and aims for cv1Voltage
+    * 2nd starts at cc2Current and aims for cv2Voltage
+    * 3rd starts at cc3Current and aims for cv3Voltage
+    *
+    * Low temperature derating is done by scaling down the CC values
+    * High temp derating is done by generally capping charge current
+    */
+
+   float cv1Result = (cv1Voltage - maxCellVoltage) * 6; //P-controller gain factor 6 A/mV
+   cv1Result = MIN(cv1Result, cc1Current);
+
+   float cv2Result = (cv2Voltage - maxCellVoltage) * 2;
+   cv2Result = MIN(cv2Result, cc2Current);
+
+   float cv3Result = (cv3Voltage - maxCellVoltage) * 2;
+   cv3Result = MIN(cv3Result, cc3Current);
+   cv3Result = MAX(cv3Result, 0);
+
+   result = MAX(cv1Result, MAX(cv2Result, cv3Result));
+   result *= highTempDerate;
+
+   return result;
+}
+
+float MebBms::GetMaximumDischargeCurrent()
+{
+   const float highTempDerate = HighTempDerating();
+   const float maxDischargeCurrent = 500;
+   const float cellVoltageCutoff = 3380;
+   float result = (minCellVoltage - cellVoltageCutoff) * 5;
+   result = MIN(maxDischargeCurrent, result);
+   result = MAX(result, 0);
+   result *= highTempDerate;
+
+   return result;
+}
+
+void MebBms::Balance(bool enable)
 {
    const uint16_t balHyst = 4;
    const uint16_t balMin = 3800;
-   uint16_t minVtg = Param::GetInt(Param::batmin);
    uint8_t balCmds[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFE, 0xFE, 0xFE, 0xFE };
-   bool balance = Param::GetBool(Param::balance) && balCounter < 11; //toggle balancing for accurate cell voltage measurement
+   bool balance = enable && balCounter < 11; //toggle balancing for accurate cell voltage measurement
    bool balancing = false;
 
    balCounter++;
@@ -116,7 +166,7 @@ void MebBms::Balance()
    {
       const int group = i / CellsPerCmu;
       const int cell = i % CellsPerCmu;
-      const bool balFlag = (cellVoltages[i] > (minVtg + balHyst)) && (cellVoltages[i] > balMin);
+      const bool balFlag = (cellVoltages[i] > (minCellVoltage + balHyst)) && (cellVoltages[i] > balMin);
 
       balCmds[cell] = balFlag && balance ? 0x8 : 0x0;
       balancing |= balFlag && balance;
@@ -162,9 +212,43 @@ void MebBms::Accumulate()
       max = MAX(max, voltage);
    }
 
-   Param::SetInt(Param::batmin, min);
-   Param::SetInt(Param::batmax, max);
-   Param::SetInt(Param::batavg, sum / NumCells);
-   Param::SetFloat(Param::udcbms, sum / 1000.0f);
+   minCellVoltage = min;
+   maxCellVoltage = max;
+   totalVoltage = sum;
 }
 
+float MebBms::LowTempDerating()
+{
+   const float drt1Temp = 21.0f;
+	const float drt2Temp = 0;
+	const float drt3Temp = -20.0f;
+	const float factorAtDrt2 = 0.3f;
+	float factor;
+
+	//We allow the ideal charge curve above 21°C
+	if (lowTemp > drt1Temp)
+	   factor = 1;
+	else if (lowTemp > drt2Temp)
+	   factor = factorAtDrt2 + (1 - factorAtDrt2) * (lowTemp - drt2Temp) / (drt1Temp - drt2Temp);
+	else if (lowTemp > drt3Temp)
+	   factor = factorAtDrt2 * (lowTemp - drt3Temp) / (drt2Temp - drt3Temp);
+	else
+	   factor = 0; //inhibit charging below -20°C
+
+	return factor;
+}
+
+float MebBms::HighTempDerating()
+{
+   const float maxTemp = 45.0f;
+	float factor = (maxTemp - highTemp) * 0.4f;
+	factor = MIN(1, factor);
+	factor = MAX(0, factor);
+
+	return factor;
+}
+
+void MebBms::SetCellVoltage(int idx, float vtg)
+{
+   cellVoltages[idx] = IIRFILTERF((float)cellVoltages[idx], vtg, 2) + 0.5f;
+}

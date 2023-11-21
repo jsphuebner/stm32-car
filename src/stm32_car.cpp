@@ -91,7 +91,7 @@ static void Ms500Task(void)
 
    regenLevelLast = Param::GetInt(Param::regenlevel);
    modeLast = mode;
-   mebBms->Balance();
+   mebBms->Balance(Param::GetBool(Param::balance));
 }
 
 static void ProcessCruiseControlButtons()
@@ -333,6 +333,33 @@ static void SetFuelGauge()
    timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, dc2);
 }
 
+static void CalcBatteryCurrentLimits()
+{
+   float cur = mebBms->GetMaximumChargeCurrent();
+   Param::SetFloat(Param::bmschglim, cur);
+
+   if (Param::GetBool(Param::din_charge))
+   {
+      if (DigIo::dcsw_out.Get() && mebBms->Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
+      {
+         float chargeLimit = Param::GetFloat(Param::chargelimit);
+         float obclimit = Param::GetFloat(Param::obclimit);
+
+         cur = MIN(cur, chargeLimit);
+         cur = MIN(cur, obclimit);
+      }
+      else
+      {
+         cur = 0;
+      }
+   }
+
+   Param::SetFloat(Param::chgcurlim, cur);
+
+   cur = mebBms->GetMaximumDischargeCurrent();
+   Param::SetFloat(Param::discurlim, cur);
+}
+
 static void Ms100Task(void)
 {
    static uint32_t uptime = 0;
@@ -344,15 +371,20 @@ static void Ms100Task(void)
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
 
-   //LeafBMS::RequestNextFrame(can);
-   //LeafBMS::Send100msMessages(can);
+   Param::SetFloat(Param::tmpbat1, mebBms->GetModuleTemperature(0));
+   Param::SetFloat(Param::tmpbat2, mebBms->GetModuleTemperature(1));
+   Param::SetFloat(Param::tmpbat3, mebBms->GetModuleTemperature(2));
+   Param::SetFloat(Param::tmpbat4, mebBms->GetModuleTemperature(3));
+   Param::SetFloat(Param::tmpbat5, mebBms->GetModuleTemperature(4));
+   Param::SetFloat(Param::tmpbat6, mebBms->GetModuleTemperature(5));
+   Param::SetFloat(Param::tmpbat7, mebBms->GetModuleTemperature(6));
+   Param::SetFloat(Param::tmpbat8, mebBms->GetModuleTemperature(7));
+   Param::SetInt(Param::batmin, mebBms->GetMinCellVoltage());
+   Param::SetInt(Param::batmax, mebBms->GetMaxCellVoltage());
+   Param::SetFloat(Param::batavg, mebBms->GetAvgCellVoltage());
+   Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
 
-   if (!mebBms->Alive(rtc_get_counter_val()))
-   {
-      Param::SetInt(Param::chgcurlim, 0);
-      Param::SetInt(Param::chglim, 0);
-   }
-
+   CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
    RunChaDeMo();
 
