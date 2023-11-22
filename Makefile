@@ -37,7 +37,7 @@ CPPFLAGS    = -Os -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3/inc
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -march=armv7 -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJSL		= $(BINARY).o hwinit.o stm32scheduler.o params.o terminal.o terminal_prj.o \
-           my_string.o digio.o my_fp.o printf.o anain.o mebbms.o \
+           my_string.o digio.o my_fp.o printf.o anain.o mebbms.o isashunt.o \
            param_save.o errormessage.o stm32_can.o chademo.o terminalcommands.o \
            canhardware.o canmap.o canobd2.o cansdo.o
 OBJS     = $(patsubst %.o,$(OUT_DIR)/%.o, $(OBJSL))

@@ -42,6 +42,7 @@
 #include "stm32scheduler.h"
 #include "mebbms.h"
 #include "chademo.h"
+#include "isashunt.h"
 #include "terminalcommands.h"
 
 #define CAN_TIMEOUT       50  //500ms
@@ -54,6 +55,7 @@ static bool chargeMode = false;
 static CanHardware* can;
 static CanMap* canMap;
 MebBms* mebBms;
+IsaShunt* isa;
 static int ignitionTimeout = 0;
 
 static void Ms500Task(void)
@@ -383,6 +385,7 @@ static void Ms100Task(void)
    Param::SetInt(Param::batmax, mebBms->GetMaxCellVoltage());
    Param::SetFloat(Param::batavg, mebBms->GetAvgCellVoltage());
    Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
+   Param::SetFloat(Param::idc, isa->GetCurrent() / 1000.0f);
 
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
@@ -847,12 +850,14 @@ extern "C" int main(void)
    CanMap cm(&c);
    CanSdo sdo(&c, &cm);
    MebBms mb(&c);
+   IsaShunt i(&c);
    TerminalCommands::SetCanMap(&cm);
    HandleClear();
    sdo.SetNodeId(2);
 
    canMap = &cm;
    mebBms = &mb;
+   isa = &i;
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
