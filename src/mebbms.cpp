@@ -22,9 +22,13 @@
 
 #define FIRST_VTG_ID    0x1C0
 
+const uint16_t socCurve[] =
+{  /* 0%   5%   10%   15%   20%   25%   30%   35%   40%   45%   50%   55%   60%   65%   70%   75%   80%   85%   90%   95%  100%*/
+   3380, 3426, 3547, 3622, 3671, 3694, 3703, 3719, 3734, 3757, 3777, 3808, 3848, 3890, 3931, 3977, 4033, 4082, 4120, 4168, 4200
+};
 
 MebBms::MebBms(CanHardware* c)
-: canHardware(c), balancerRunning(false), balCounter(0)
+: canHardware(c), balancerRunning(false), balCounter(0), lastSettlingSampleTime(0)
 {
    for (int i = 0; i < NumCells; i++)
       cellVoltages[i] = 0;
@@ -149,6 +153,57 @@ float MebBms::GetMaximumDischargeCurrent()
    result *= highTempDerate;
 
    return result;
+}
+
+float MebBms::EstimateSocFromVoltage()
+{
+   int n = sizeof(socCurve) / sizeof(socCurve[0]);
+
+   for (int i = 0; i < n; i++)
+   {
+      if (minCellVoltage < socCurve[i])
+      {
+         if (i == 0) return 0;
+
+         float soc = i * 10;
+         float lutDiff = socCurve[i] - socCurve[i - 1];
+         float valDiff = socCurve[i] - minCellVoltage;
+         //interpolate
+         soc -= (valDiff / lutDiff) * 5;
+         return soc;
+      }
+   }
+   return 100;
+}
+
+bool MebBms::CellVoltagesSettled(float current, uint32_t time)
+{
+   if (ABS(current) < 1 && lastSettlingSampleTime == 0)
+   {
+      lastSettlingSampleTime = time;
+      lastUpperCellVoltage = maxCellVoltage;
+      lastLowerCellVoltage = minCellVoltage;
+   }
+   else
+   {
+      lastSettlingSampleTime = 0;
+      return false;
+   }
+
+   //Once every 30s we consider the cell voltages settled if there hasn't been more than 2mV movement
+   if ((time - lastSettlingSampleTime) > 3000) //10ms ticks, 30s
+   {
+      int16_t diff1 = (int)lastUpperCellVoltage - (int)maxCellVoltage;
+      diff1 = ABS(diff1);
+      int16_t diff2 = (int)lastLowerCellVoltage - (int)minCellVoltage;
+      diff2 = ABS(diff2);
+      lastUpperCellVoltage = maxCellVoltage;
+      lastLowerCellVoltage = minCellVoltage;
+      lastSettlingSampleTime = time;
+
+      return diff1 <= 2 && diff2 <= 2;
+   }
+   return false;
 }
 
 void MebBms::Balance(bool enable)

@@ -40,13 +40,6 @@ class IsaShunt : public CanCallback
       int32_t GetChargeIn() { return chargeIn; }
       int32_t GetChargeOut() { return chargeOut; }
 
-      static const int CAN_ID_REPLY = 0x511;
-      static const int CAN_ID_CURRENT = 0x521;
-      static const int CAN_ID_VOLTAGE = 0x522;
-      static const int CAN_ID_POWER = 0x526;
-
-   protected:
-
    private:
       enum IsaStates
       {

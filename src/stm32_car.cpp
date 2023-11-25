@@ -369,6 +369,7 @@ static void Ms100Task(void)
    DigIo::led_out.Toggle();
    iwdg_reset();
    float cpuLoad = scheduler->GetCpuLoad();
+   float current = isa->GetCurrent() / 1000.0f;
    Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
@@ -385,7 +386,13 @@ static void Ms100Task(void)
    Param::SetInt(Param::batmax, mebBms->GetMaxCellVoltage());
    Param::SetFloat(Param::batavg, mebBms->GetAvgCellVoltage());
    Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
-   Param::SetFloat(Param::idc, isa->GetCurrent() / 1000.0f);
+   Param::SetFloat(Param::idc, current);
+
+   if (mebBms->CellVoltagesSettled(current, rtc_get_counter_val()))
+   {
+      float soc = mebBms->EstimateSocFromVoltage();
+      Param::SetFloat(Param::soc, soc);
+   }
 
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();

@@ -38,6 +38,8 @@ class MebBms : public CanCallback
       uint16_t GetMaxCellVoltage() { return maxCellVoltage; }
       float GetAvgCellVoltage() { return totalVoltage / NumCells; }
       float GetTotalVoltage() { return totalVoltage / 1000.0f; }
+      float EstimateSocFromVoltage();
+      bool CellVoltagesSettled(float current, uint32_t time);
       void Balance(bool enable);
       bool Alive(uint32_t time);
       static const int NumCells = 96;
@@ -63,6 +65,9 @@ class MebBms : public CanCallback
       uint32_t lastReceived[NumCells / CellsPerCmu];
       bool balancerRunning;
       uint8_t balCounter;
+      uint16_t lastUpperCellVoltage;
+      uint16_t lastLowerCellVoltage;
+      uint32_t lastSettlingSampleTime;
 };
 
 #endif // MEBBMS_H

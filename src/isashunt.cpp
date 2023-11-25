@@ -18,6 +18,11 @@
  */
 #include "isashunt.h"
 
+static const int CAN_ID_REPLY = 0x511;
+static const int CAN_ID_CURRENT = 0x521;
+static const int CAN_ID_VOLTAGE = 0x522;
+static const int CAN_ID_POWER = 0x526;
+static const int CAN_ID_CONFIG = 0x411;
 static int channel;
 
 IsaShunt::IsaShunt(CanHardware* hw)
@@ -42,7 +47,7 @@ void IsaShunt::ResetCounters()
    uint32_t configData[2] = { 0x0030, 0 };
 
    Stop();
-   can->Send(0x411, configData);
+   can->Send(CAN_ID_CONFIG, configData);
    Start();
 }
 
@@ -50,7 +55,7 @@ void IsaShunt::RequestCharge()
 {
    uint32_t configData[2] = { 0x0243, 0 };
 
-   can->Send(0x411, configData);
+   can->Send(CAN_ID_CONFIG, configData);
    state = RequestChargeOut;
 }
 
@@ -58,14 +63,14 @@ void IsaShunt::Start()
 {
    uint32_t configData[2] = { 0x0134, 0 };
 
-   can->Send(0x411, configData);
+   can->Send(CAN_ID_CONFIG, configData);
 }
 
 void IsaShunt::Stop()
 {
    uint32_t configData[2] = { 0x0034, 0 };
 
-   can->Send(0x411, configData);
+   can->Send(CAN_ID_CONFIG, configData);
 }
 
 bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
@@ -117,10 +122,10 @@ void IsaShunt::RunStateMachine(uint32_t data[])
          uint32_t configData[2] = { 0x64004020, 0 };
 
          configData[0] |= channel;
-         //Only enable I, U1 and P
-         if (channel == 0 || channel == 1 || channel == 5)
+         //Only enable I and As
+         if (channel == 0 || channel == 6)
             configData[0] |= 0x200; //cyclic trigger
-         can->Send(0x411, configData);
+         can->Send(CAN_ID_CONFIG, configData);
          channel++;
       }
       else
@@ -136,7 +141,7 @@ void IsaShunt::RunStateMachine(uint32_t data[])
 
       chargeIn = u8data[7] + (u8data[6] << 8) + (u8data[5] << 16) + (u8data[4] << 24);
 
-      can->Send(0x411, configData);
+      can->Send(CAN_ID_CONFIG, configData);
       state = ReadChargeOut;
    }
    else if (state == ReadChargeOut)
