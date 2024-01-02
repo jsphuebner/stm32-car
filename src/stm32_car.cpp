@@ -370,8 +370,8 @@ static void Ms100Task(void)
    DigIo::led_out.Toggle();
    iwdg_reset();
    float cpuLoad = scheduler->GetCpuLoad();
-   float current = isa->GetCurrent() / 1000.0f;
-   float cpVtg = (isa->GetVoltage(0) - isa->GetVoltage(1)) / 1000.0f;
+   float current = isa->GetValue(IsaShunt::CURRENT) / 1000.0f;
+   float cpVtg = (isa->GetValue(IsaShunt::U1) - isa->GetValue(IsaShunt::U2)) / 1000.0f;
    Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
@@ -400,7 +400,7 @@ static void Ms100Task(void)
    }
    else
    {
-      int32_t as = isa->GetIntegratedCurrent();
+      int32_t as = isa->GetValue(IsaShunt::AS);
       float ah = as / 3600.0f;
       float socChange = 100 * ah / mebBms->GetMaximumAmpHours();
       Param::SetFloat(Param::soc, estimatedSoc + socChange);

@@ -24,17 +24,17 @@
 class IsaShunt : public CanCallback
 {
    public:
+      enum channels { CURRENT = 1, U1 = 2, U2 = 4, U3 = 8, TEMP = 16, POWER = 32, AS = 64, WH = 128 };
+
       /** Default constructor */
-      IsaShunt(CanHardware* hw);
+      IsaShunt(CanHardware* hw, uint8_t enabledChannels = 0x4F);
       bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void HandleClear();
       void ResetCounters();
       void Stop();
       void Start();
       bool IsReady() { return initialized; }
-      int32_t GetCurrent() { return current; }
-      int32_t GetVoltage(int i) { return voltages[i]; }
-      int32_t GetIntegratedCurrent() { return currentIntegral; }
+      int32_t GetValue(channels chan);
 
    private:
       void Configure(uint32_t data[2]);
@@ -42,7 +42,10 @@ class IsaShunt : public CanCallback
       CanHardware *can;
       int32_t current;
       int32_t voltages[3];
+      int32_t power;
+      int32_t temp;
       int32_t currentIntegral;
+      int32_t powerIntegral;
       bool initialized;
       uint8_t enableMask;
 };

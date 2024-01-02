@@ -18,18 +18,24 @@
  */
 #include "isashunt.h"
 
-static const int CAN_ID_REPLY = 0x511;
-static const int CAN_ID_CURRENT = 0x521;
-static const int CAN_ID_VOLTAGE1 = 0x522;
-static const int CAN_ID_VOLTAGE2 = 0x523;
-static const int CAN_ID_VOLTAGE3 = 0x524;
-static const int CAN_ID_POWER = 0x526;
-static const int CAN_ID_CURINT = 0x527;
-static const int CAN_ID_CONFIG = 0x411;
+enum canids
+{
+   CAN_ID_REPLY = 0x511,
+   CAN_ID_CURRENT = 0x521,
+   CAN_ID_VOLTAGE1 = 0x522,
+   CAN_ID_VOLTAGE2 = 0x523,
+   CAN_ID_VOLTAGE3 = 0x524,
+   CAN_ID_TEMP = 0x525,
+   CAN_ID_POWER = 0x526,
+   CAN_ID_CURINT = 0x527,
+   CAN_ID_POWINT = 0x528,
+   CAN_ID_CONFIG = 0x411
+};
+
 static int channel;
 
-IsaShunt::IsaShunt(CanHardware* hw)
-   : can(hw), current(0), initialized(false), enableMask(0x4F)
+IsaShunt::IsaShunt(CanHardware* hw, uint8_t enabledChannels)
+   : can(hw), current(0), initialized(false), enableMask(enabledChannels)
 {
    can = hw;
    channel = 0;
@@ -41,10 +47,10 @@ IsaShunt::IsaShunt(CanHardware* hw)
 void IsaShunt::HandleClear()
 {
    can->RegisterUserMessage(CAN_ID_REPLY);
-   can->RegisterUserMessage(CAN_ID_CURRENT);
-   can->RegisterUserMessage(CAN_ID_VOLTAGE1); //Charge Port +
-   can->RegisterUserMessage(CAN_ID_VOLTAGE2); //Charge Port -
-   can->RegisterUserMessage(CAN_ID_CURINT); //Integrator
+
+   for (uint8_t chan = 0; chan < 8; chan++)
+      if ((1 << chan) & enableMask)
+         can->RegisterUserMessage(CAN_ID_CURRENT + chan);
 }
 
 void IsaShunt::ResetCounters()
@@ -70,6 +76,39 @@ void IsaShunt::Stop()
    can->Send(CAN_ID_CONFIG, configData);
 }
 
+int32_t IsaShunt::GetValue(channels chan)
+{
+   int32_t result = 0;
+   switch (chan)
+   {
+   case CURRENT:
+      result = current;
+      break;
+   case U1:
+      result = voltages[0];
+      break;
+   case U2:
+      result = voltages[1];
+      break;
+   case U3:
+      result = voltages[2];
+      break;
+   case TEMP:
+      result = temp;
+      break;
+   case POWER:
+      result = power;
+      break;
+   case AS:
+      result = currentIntegral;
+      break;
+   case WH:
+      result = powerIntegral;
+      break;
+   }
+   return result;
+}
+
 bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
 {
    bool isIsa = true;
@@ -87,6 +126,15 @@ bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
       break;
    case CAN_ID_VOLTAGE2:
       voltages[1] = (data[0] >> 16) + (data[1] << 16);
+      break;
+   case CAN_ID_VOLTAGE3:
+      voltages[2] = (data[0] >> 16) + (data[1] << 16);
+      break;
+   case CAN_ID_TEMP:
+      power = (data[0] >> 16) + (data[1] << 16);
+      break;
+   case CAN_ID_POWER:
+      power = (data[0] >> 16) + (data[1] << 16);
       break;
    case CAN_ID_CURINT:
       currentIntegral = (data[0] >> 16) + (data[1] << 16);
@@ -115,6 +163,9 @@ void IsaShunt::Configure(uint32_t data[2])
       //Data channels
       //00: I [mA]
       //01: U1 [mV]
+      //02: U2 [mV]
+      //03: U3 [mV]
+      //04: T [°C]
       //05: P [W]
       //06: As [As]
       //07: Wh [Wh]
