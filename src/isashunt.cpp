@@ -20,26 +20,31 @@
 
 static const int CAN_ID_REPLY = 0x511;
 static const int CAN_ID_CURRENT = 0x521;
-static const int CAN_ID_VOLTAGE = 0x522;
+static const int CAN_ID_VOLTAGE1 = 0x522;
+static const int CAN_ID_VOLTAGE2 = 0x523;
+static const int CAN_ID_VOLTAGE3 = 0x524;
 static const int CAN_ID_POWER = 0x526;
+static const int CAN_ID_CURINT = 0x527;
 static const int CAN_ID_CONFIG = 0x411;
 static int channel;
 
 IsaShunt::IsaShunt(CanHardware* hw)
-   : can(hw), current(0), state(Init)
+   : can(hw), current(0), initialized(false), enableMask(0x4F)
 {
    can = hw;
    channel = 0;
    can->AddCallback(this);
    HandleClear();
+   Stop();
 }
 
 void IsaShunt::HandleClear()
 {
    can->RegisterUserMessage(CAN_ID_REPLY);
    can->RegisterUserMessage(CAN_ID_CURRENT);
-   can->RegisterUserMessage(CAN_ID_VOLTAGE);
-   can->RegisterUserMessage(CAN_ID_POWER);
+   can->RegisterUserMessage(CAN_ID_VOLTAGE1); //Charge Port +
+   can->RegisterUserMessage(CAN_ID_VOLTAGE2); //Charge Port -
+   can->RegisterUserMessage(CAN_ID_CURINT); //Integrator
 }
 
 void IsaShunt::ResetCounters()
@@ -49,14 +54,6 @@ void IsaShunt::ResetCounters()
    Stop();
    can->Send(CAN_ID_CONFIG, configData);
    Start();
-}
-
-void IsaShunt::RequestCharge()
-{
-   uint32_t configData[2] = { 0x0243, 0 };
-
-   can->Send(CAN_ID_CONFIG, configData);
-   state = RequestChargeOut;
 }
 
 void IsaShunt::Start()
@@ -75,39 +72,45 @@ void IsaShunt::Stop()
 
 bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
 {
-   bool isIsa = false;
+   bool isIsa = true;
 
    switch (id)
    {
    case CAN_ID_REPLY:
-      RunStateMachine(data);
-      isIsa = true;
+      Configure(data);
       break;
    case CAN_ID_CURRENT:
       current = (data[0] >> 16) + (data[1] << 16);
-      isIsa = true;
       break;
-   case CAN_ID_VOLTAGE:
-      voltage = (data[0] >> 16) + (data[1] << 16);
-      isIsa = true;
+   case CAN_ID_VOLTAGE1:
+      voltages[0] = (data[0] >> 16) + (data[1] << 16);
       break;
-   case CAN_ID_POWER:
-      power = (data[0] >> 16) + (data[1] << 16);
-      isIsa = true;
+   case CAN_ID_VOLTAGE2:
+      voltages[1] = (data[0] >> 16) + (data[1] << 16);
       break;
-   }
-
-   if (state == Init && channel == 0 && isIsa)
-   {
-      Stop();
+   case CAN_ID_CURINT:
+      currentIntegral = (data[0] >> 16) + (data[1] << 16);
+      break;
+   default:
+      isIsa = false;
+      break;
    }
 
    return isIsa;
 }
 
-void IsaShunt::RunStateMachine(uint32_t data[])
+void IsaShunt::Configure(uint32_t data[2])
 {
-   if (state == Init)
+   //Bootup message received, initialize shunt
+   if ((data[0] & 0xFF) == 0xBF)
+   {
+      initialized = false;
+      channel = 0;
+      Stop();
+      return;
+   }
+
+   if (!initialized)
    {
       //Data channels
       //00: I [mA]
@@ -123,7 +126,7 @@ void IsaShunt::RunStateMachine(uint32_t data[])
 
          configData[0] |= channel;
          //Only enable I and As
-         if (channel == 0 || channel == 6)
+         if ((1 << channel) & enableMask)
             configData[0] |= 0x200; //cyclic trigger
          can->Send(CAN_ID_CONFIG, configData);
          channel++;
@@ -131,23 +134,7 @@ void IsaShunt::RunStateMachine(uint32_t data[])
       else
       {
          Start();
-         state = Operate;
+         initialized = true;
       }
-   }
-   else if (state == RequestChargeOut) //Read charge in and request charge out
-   {
-      uint32_t configData[2] = { 0x0343, 0 };
-      uint8_t* u8data = (uint8_t*)data;
-
-      chargeIn = u8data[7] + (u8data[6] << 8) + (u8data[5] << 16) + (u8data[4] << 24);
-
-      can->Send(CAN_ID_CONFIG, configData);
-      state = ReadChargeOut;
-   }
-   else if (state == ReadChargeOut)
-   {
-      uint8_t* u8data = (uint8_t*)data;
-      chargeOut = u8data[7] + (u8data[6] << 8) + (u8data[5] << 16) + (u8data[4] << 24);
-      state = Operate;
    }
 }

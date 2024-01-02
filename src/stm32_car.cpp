@@ -291,7 +291,7 @@ static void RunChaDeMo()
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
-      Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
+      //Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
       Param::SetInt(Param::din_forward, 0);
       ChaDeMo::SendMessages(can);
@@ -365,11 +365,13 @@ static void CalcBatteryCurrentLimits()
 static void Ms100Task(void)
 {
    static uint32_t uptime = 0;
+   static float estimatedSoc = 0;
 
    DigIo::led_out.Toggle();
    iwdg_reset();
    float cpuLoad = scheduler->GetCpuLoad();
    float current = isa->GetCurrent() / 1000.0f;
+   float cpVtg = (isa->GetVoltage(0) - isa->GetVoltage(1)) / 1000.0f;
    Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
@@ -387,12 +389,24 @@ static void Ms100Task(void)
    Param::SetFloat(Param::batavg, mebBms->GetAvgCellVoltage());
    Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
    Param::SetFloat(Param::idc, current);
+   Param::SetFloat(Param::udccdm, cpVtg);
 
-   if (mebBms->CellVoltagesSettled(current, rtc_get_counter_val()))
+   if (/*mebBms->CellVoltagesSettled(current, rtc_get_counter_val())*/ABS(current) < 1)
    {
-      float soc = mebBms->EstimateSocFromVoltage();
-      Param::SetFloat(Param::soc, soc);
+      estimatedSoc = mebBms->EstimateSocFromVoltage();
+      Param::SetFloat(Param::soc, estimatedSoc);
+      //isa->ResetCounters();
+      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc));
    }
+   else
+   {
+      int32_t as = isa->GetIntegratedCurrent();
+      float ah = as / 3600.0f;
+      float socChange = 100 * ah / mebBms->GetMaximumAmpHours();
+      Param::SetFloat(Param::soc, estimatedSoc + socChange);
+      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc + socChange));
+   }
+
 
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
@@ -852,7 +866,6 @@ extern "C" int main(void)
    FunctionPointerCallback cb(CanCallback, HandleClear);
 
    can = &c;
-   //c.SetNodeId(2);
    c.AddCallback(&cb);
    CanMap cm(&c);
    CanSdo sdo(&c, &cm);

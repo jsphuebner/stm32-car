@@ -28,31 +28,23 @@ class IsaShunt : public CanCallback
       IsaShunt(CanHardware* hw);
       bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void HandleClear();
-      void Initialize();
       void ResetCounters();
-      void RequestCharge();
       void Stop();
       void Start();
-      bool IsReady() { return state == Operate; }
+      bool IsReady() { return initialized; }
       int32_t GetCurrent() { return current; }
-      int32_t GetVoltage() { return voltage; }
-      int32_t GetPower() { return power; }
-      int32_t GetChargeIn() { return chargeIn; }
-      int32_t GetChargeOut() { return chargeOut; }
+      int32_t GetVoltage(int i) { return voltages[i]; }
+      int32_t GetIntegratedCurrent() { return currentIntegral; }
 
    private:
-      enum IsaStates
-      {
-         Init, Reset, RequestChargeOut, ReadChargeOut, Operate
-      };
-      void RunStateMachine(uint32_t data[]);
+      void Configure(uint32_t data[2]);
+
       CanHardware *can;
       int32_t current;
-      int32_t voltage;
-      int32_t power;
-      uint32_t chargeIn;
-      uint32_t chargeOut;
-      IsaStates state;
+      int32_t voltages[3];
+      int32_t currentIntegral;
+      bool initialized;
+      uint8_t enableMask;
 };
 
 #endif // ISASHUNT_H
