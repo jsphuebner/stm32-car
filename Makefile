@@ -32,7 +32,7 @@ CFLAGS		= -Os -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3/include
              -fno-common -fno-builtin -pedantic -DSTM32F1 -DT_DEBUG=$(TERMINAL_DEBUG)  \
 				 -mcpu=cortex-m3 -mthumb -std=gnu99 -ffunction-sections -fdata-sections
 CPPFLAGS    = -Os -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3/include \
-            -fno-common -std=c++20 -pedantic -DSTM32F1 -DMAX_USER_MESSAGES=20 -DMAX_ITEMS=70  \
+            -fno-common -std=c++20 -pedantic -DSTM32F1 -DMAX_ITEMS=70  \
 		 -ffunction-sections -fdata-sections -fno-builtin -fno-rtti -fno-exceptions -fno-unwind-tables -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS  = -Llibopencm3/lib -T$(LDSCRIPT) -march=armv7 -nostartfiles -Wl,--gc-sections,-Map,linker.map
@@ -41,6 +41,7 @@ OBJSL		= $(BINARY).o hwinit.o stm32scheduler.o params.o terminal.o terminal_prj.
            param_save.o errormessage.o stm32_can.o chademo.o terminalcommands.o \
            canhardware.o canmap.o canobd2.o cansdo.o
 OBJS     = $(patsubst %.o,$(OUT_DIR)/%.o, $(OBJSL))
+DEPENDS  = $(patsubst %.o,obj/%.d, $(OBJSL))
 vpath %.c src/ libopeninv/src/
 vpath %.cpp src/ libopeninv/src/
 
@@ -76,13 +77,15 @@ $(BINARY): $(OBJS) $(LDSCRIPT)
 	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopencm3_stm32f1
 
+-include $(DEPENDS)
+
 $(OUT_DIR)/%.o: %.c Makefile
 	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
+	$(Q)$(CC) $(CFLAGS) -MMD -MP -o $@ -c $<
 
 $(OUT_DIR)/%.o: %.cpp Makefile
 	@printf "  CPP     $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(CPP) $(CPPFLAGS) -o $@ -c $<
+	$(Q)$(CPP) $(CPPFLAGS) -MMD -MP -o $@ -c $<
 
 clean:
 	@printf "  CLEAN   ${OUT_DIR}\n"
