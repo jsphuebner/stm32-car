@@ -40,6 +40,8 @@ class MebBms : public CanCallback
       float GetTotalVoltage() { return totalVoltage / 1000.0f; }
       float EstimateSocFromVoltage();
       bool CellVoltagesSettled(float current, uint32_t time);
+      float GetMaximumAmpHours();
+      float GetRemainingEnergy(float soc);
       void Balance(bool enable);
       bool Alive(uint32_t time);
       static const int NumCells = 96;

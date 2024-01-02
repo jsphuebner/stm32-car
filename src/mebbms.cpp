@@ -28,7 +28,8 @@ const uint16_t socCurve[] =
 };
 
 MebBms::MebBms(CanHardware* c)
-: canHardware(c), balancerRunning(false), balCounter(0), lastSettlingSampleTime(0)
+: canHardware(c), cellVoltages(0), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
+  balancerRunning(false), balCounter(0), lastSettlingSampleTime(0)
 {
    for (int i = 0; i < NumCells; i++)
       cellVoltages[i] = 0;
@@ -157,7 +158,7 @@ float MebBms::GetMaximumDischargeCurrent()
 
 float MebBms::EstimateSocFromVoltage()
 {
-   int n = sizeof(socCurve) / sizeof(socCurve[0]);
+   const int n = sizeof(socCurve) / sizeof(socCurve[0]);
 
    for (int i = 0; i < n; i++)
    {
@@ -165,7 +166,7 @@ float MebBms::EstimateSocFromVoltage()
       {
          if (i == 0) return 0;
 
-         float soc = i * 10;
+         float soc = i * 5;
          float lutDiff = socCurve[i] - socCurve[i - 1];
          float valDiff = socCurve[i] - minCellVoltage;
          //interpolate
@@ -190,8 +191,10 @@ bool MebBms::CellVoltagesSettled(float current, uint32_t time)
       return false;
    }
 
+   return (time - lastSettlingSampleTime) > 3000;
+
    //Once every 30s we consider the cell voltages settled if there hasn't been more than 2mV movement
-   if ((time - lastSettlingSampleTime) > 3000) //10ms ticks, 30s
+   /*if ((time - lastSettlingSampleTime) > 3000) //10ms ticks, 30s
    {
       int16_t diff1 = (int)lastUpperCellVoltage - (int)maxCellVoltage;
       diff1 = ABS(diff1);
@@ -203,7 +206,36 @@ bool MebBms::CellVoltagesSettled(float current, uint32_t time)
 
       return diff1 <= 2 && diff2 <= 2;
    }
-   return false;
+   return false;*/
+}
+
+/** \brief Calculates the theoretically remaining energy in Wh at the given SoC
+ *
+ * \param soc state of charge
+ * \return float
+ *
+ */
+float MebBms::GetRemainingEnergy(float soc)
+{
+   //Find out the theoretical floating cell voltage by looking up at the given SoC
+   const int maxLookupIndex = sizeof(socCurve) / sizeof(socCurve[0]);
+   const int lookupGranularity = 100 / maxLookupIndex;
+   int socIndex = soc / lookupGranularity;
+   float socFraction = (soc - (socIndex * lookupGranularity)) / lookupGranularity; //where are we in the segment?
+   socIndex = MIN(socIndex, maxLookupIndex);
+   socIndex = MAX(socIndex, 0);
+
+   if (socIndex < maxLookupIndex) //less than 100% SoC
+   {
+      uint16_t diff = socCurve[socIndex + 1] - socCurve[socIndex];
+      float floatingVoltageAtSoC = socCurve[socIndex] + diff * socFraction;
+      //energy = Amp hours remaining * floating voltage * number of cells
+      return soc * GetMaximumAmpHours() * floatingVoltageAtSoC * NumCells;
+   }
+   else //100%
+   {
+      return socCurve[maxLookupIndex] * GetMaximumAmpHours() * NumCells;
+   }
 }
 
 void MebBms::Balance(bool enable)
@@ -244,6 +276,12 @@ void MebBms::Balance(bool enable)
    balancerRunning = balancing;
 }
 
+float MebBms::GetMaximumAmpHours()
+{
+   //TODO actually estimate this
+   return 158;
+}
+
 bool MebBms::Alive(uint32_t time)
 {
    uint32_t lastRecv = time;
@@ -274,13 +312,13 @@ void MebBms::Accumulate()
 
 float MebBms::LowTempDerating()
 {
-   const float drt1Temp = 21.0f;
+   const float drt1Temp = 25.0f;
 	const float drt2Temp = 0;
 	const float drt3Temp = -20.0f;
 	const float factorAtDrt2 = 0.3f;
 	float factor;
 
-	//We allow the ideal charge curve above 21°C
+	//We allow the ideal charge curve above 25°C
 	if (lowTemp > drt1Temp)
 	   factor = 1;
 	else if (lowTemp > drt2Temp)
