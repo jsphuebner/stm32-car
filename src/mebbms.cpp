@@ -27,9 +27,14 @@ const uint16_t socCurve[] =
    3380, 3426, 3547, 3622, 3671, 3694, 3703, 3719, 3734, 3757, 3777, 3808, 3848, 3890, 3931, 3977, 4033, 4082, 4120, 4168, 4200
 };
 
+const uint8_t socCurveTableItems = sizeof(socCurve) / sizeof(socCurve[0]);
+const uint8_t socCurveGranularity = 100 / socCurveTableItems;
+
+float energy[socCurveTableItems];
+
 MebBms::MebBms(CanHardware* c)
 : canHardware(c), cellVoltages(0), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
-  balancerRunning(false), balCounter(0), lastSettlingSampleTime(0)
+  balancerRunning(false), balCounter(0)
 {
    for (int i = 0; i < NumCells; i++)
       cellVoltages[i] = 0;
@@ -39,6 +44,15 @@ MebBms::MebBms(CanHardware* c)
       temps[i] = 0;
       lastReceived[i] = 0;
       balFlags[i] = 0;
+   }
+
+   const float ampHoursInSegment = GetMaximumAmpHours() * socCurveGranularity / 100.0f;
+   energy[0] = 0;
+
+   for (int i = 1; i < socCurveTableItems; i++)
+   {
+      float energyInSegment = NumCells * ampHoursInSegment * (socCurve[i] + socCurve[i - 1]) / 2000.0f;
+      energy[i] = energy[i - 1] + energyInSegment;
    }
 
    canHardware->AddCallback(this);
@@ -170,43 +184,11 @@ float MebBms::EstimateSocFromVoltage()
          float lutDiff = socCurve[i] - socCurve[i - 1];
          float valDiff = socCurve[i] - minCellVoltage;
          //interpolate
-         soc -= (valDiff / lutDiff) * 5;
+         soc -= (valDiff / lutDiff) * socCurveGranularity;
          return soc;
       }
    }
    return 100;
-}
-
-bool MebBms::CellVoltagesSettled(float current, uint32_t time)
-{
-   if (ABS(current) < 1 && lastSettlingSampleTime == 0)
-   {
-      lastSettlingSampleTime = time;
-      lastUpperCellVoltage = maxCellVoltage;
-      lastLowerCellVoltage = minCellVoltage;
-   }
-   else
-   {
-      lastSettlingSampleTime = 0;
-      return false;
-   }
-
-   return (time - lastSettlingSampleTime) > 3000;
-
-   //Once every 30s we consider the cell voltages settled if there hasn't been more than 2mV movement
-   /*if ((time - lastSettlingSampleTime) > 3000) //10ms ticks, 30s
-   {
-      int16_t diff1 = (int)lastUpperCellVoltage - (int)maxCellVoltage;
-      diff1 = ABS(diff1);
-      int16_t diff2 = (int)lastLowerCellVoltage - (int)minCellVoltage;
-      diff2 = ABS(diff2);
-      lastUpperCellVoltage = maxCellVoltage;
-      lastLowerCellVoltage = minCellVoltage;
-      lastSettlingSampleTime = time;
-
-      return diff1 <= 2 && diff2 <= 2;
-   }
-   return false;*/
 }
 
 /** \brief Calculates the theoretically remaining energy in Wh at the given SoC
@@ -218,24 +200,22 @@ bool MebBms::CellVoltagesSettled(float current, uint32_t time)
 float MebBms::GetRemainingEnergy(float soc)
 {
    //Find out the theoretical floating cell voltage by looking up at the given SoC
-   const int maxLookupIndex = sizeof(socCurve) / sizeof(socCurve[0]);
-   const int lookupGranularity = 100 / maxLookupIndex;
-   int socIndex = soc / lookupGranularity;
-   float socFraction = (soc - (socIndex * lookupGranularity)) / lookupGranularity; //where are we in the segment?
-   socIndex = MIN(socIndex, maxLookupIndex);
+   int socIndex = soc / socCurveGranularity;
+   float socFraction = (soc - (socIndex * socCurveGranularity)) / socCurveGranularity; //where are we in the segment?
+   socIndex = MIN(socIndex, socCurveTableItems);
    socIndex = MAX(socIndex, 0);
+   float energyAtSoc;
 
-   if (socIndex < maxLookupIndex) //less than 100% SoC
+   if (socIndex < socCurveTableItems) //less than 100% SoC
    {
-      uint16_t diff = socCurve[socIndex + 1] - socCurve[socIndex];
-      float floatingVoltageAtSoC = socCurve[socIndex] + diff * socFraction;
-      //energy = Amp hours remaining * floating voltage * number of cells
-      return soc * GetMaximumAmpHours() * floatingVoltageAtSoC * NumCells;
+      float diff = energy[socIndex + 1] - energy[socIndex];
+      energyAtSoc = energy[socIndex] + diff * socFraction;
    }
    else //100%
    {
-      return socCurve[maxLookupIndex] * GetMaximumAmpHours() * NumCells;
+      energyAtSoc = energy[socCurveTableItems - 1];
    }
+   return energyAtSoc;
 }
 
 void MebBms::Balance(bool enable)
@@ -279,7 +259,7 @@ void MebBms::Balance(bool enable)
 float MebBms::GetMaximumAmpHours()
 {
    //TODO actually estimate this
-   return 158;
+   return 148;
 }
 
 bool MebBms::Alive(uint32_t time)

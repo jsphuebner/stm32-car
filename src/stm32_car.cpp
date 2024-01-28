@@ -214,8 +214,6 @@ static void RunChaDeMo()
          }
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
          startTime = rtc_get_counter_val();
       }
@@ -226,8 +224,6 @@ static void RunChaDeMo()
       {
          chargeMode = true;
          Param::SetInt(Param::opmode, MOD_CHARGESTART);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
          startTime = rtc_get_counter_val();
       }
@@ -237,9 +233,6 @@ static void RunChaDeMo()
    if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && (rtc_get_counter_val() - startTime) > 100)
    {
       ChaDeMo::SetEnabled(true);
-      //Use fuel gauge line to control charge enable signal
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, GAUGEMAX);
-      timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, GAUGEMAX);
    }
 
    if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && ChaDeMo::ConnectorLocked())
@@ -286,12 +279,10 @@ static void RunChaDeMo()
             ChaDeMo::SetGeneralFault();
          }
          ChaDeMo::SetEnabled(false);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC2, 0);
-         timer_set_oc_value(FUELGAUGE_TIMER, TIM_OC3, 0);
          Param::SetInt(Param::opmode, MOD_CHARGEND);
       }
 
-      //Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
+      Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
       Param::SetInt(Param::din_forward, 0);
       ChaDeMo::SendMessages(can);
@@ -366,12 +357,14 @@ static void Ms100Task(void)
 {
    static uint32_t uptime = 0;
    static float estimatedSoc = 0;
+   static uint32_t lastCurrentTime = 0;
+   uint32_t rtc = rtc_get_counter_val();
 
    DigIo::led_out.Toggle();
    iwdg_reset();
    float cpuLoad = scheduler->GetCpuLoad();
    float current = isa->GetValue(IsaShunt::CURRENT) / 1000.0f;
-   float cpVtg = (isa->GetValue(IsaShunt::U1) - isa->GetValue(IsaShunt::U2)) / 1000.0f;
+   //float cpVtg = (isa->GetValue(IsaShunt::U1) - isa->GetValue(IsaShunt::U2)) / 1000.0f;
    Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
    Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
@@ -389,13 +382,16 @@ static void Ms100Task(void)
    Param::SetFloat(Param::batavg, mebBms->GetAvgCellVoltage());
    Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
    Param::SetFloat(Param::idc, current);
-   Param::SetFloat(Param::udccdm, cpVtg);
+   //Param::SetFloat(Param::udccdm, cpVtg);
 
-   if (/*mebBms->CellVoltagesSettled(current, rtc_get_counter_val())*/ABS(current) < 1)
+   if (ABS(current) > 1)
+      lastCurrentTime = rtc;
+
+   if ((rtc - lastCurrentTime) > 10000 || (rtc > 100 && rtc < 200)) //no current flow since 100s or startup
    {
       estimatedSoc = mebBms->EstimateSocFromVoltage();
       Param::SetFloat(Param::soc, estimatedSoc);
-      //isa->ResetCounters();
+      isa->ResetCounters();
       Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc));
    }
    else
@@ -406,7 +402,6 @@ static void Ms100Task(void)
       Param::SetFloat(Param::soc, estimatedSoc + socChange);
       Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc + socChange));
    }
-
 
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
@@ -424,11 +419,8 @@ static void Ms100Task(void)
       Param::SetInt(Param::invmode, 0);
    }
 
-   if (!chargeMode && rtc_get_counter_val() > 100)
-   {
-      SendVAG100msMessage();
-      SetFuelGauge();
-   }
+   SendVAG100msMessage();
+   SetFuelGauge();
 
    if (!mebBms->Alive(rtc_get_counter_val()))
    {
@@ -748,21 +740,19 @@ static void Ms10Task(void)
    Param::SetInt(Param::vacuum, vacuum);
    Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
 
-   //LeafBMS::Send10msMessages(can);
-
-   if (!chargeMode)
+   if (chargeMode)
+   {
+      Param::SetInt(Param::speedmod, 0);
+   }
+   else
    {
       Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
    }
 
-   //In drive mode and when charging with OBC send messages, in CHAdeMO mode don't
-   if (!chargeMode || Param::GetBool(Param::din_charge))
-   {
-      SendVag10MsMessages(power);
-      Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);
-      SendOIControlMessage();
-      canMap->SendAll();
-   }
+   SendVag10MsMessages(power);
+   Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);
+   SendOIControlMessage();
+   canMap->SendAll();
 }
 
 static void DecodeCruiseControl(uint32_t data)
@@ -866,11 +856,11 @@ extern "C" int main(void)
    FunctionPointerCallback cb(CanCallback, HandleClear);
 
    can = &c;
+   IsaShunt i(&c, IsaShunt::CURRENT | IsaShunt::AS);
    c.AddCallback(&cb);
    CanMap cm(&c);
    CanSdo sdo(&c, &cm);
    MebBms mb(&c);
-   IsaShunt i(&c);
    TerminalCommands::SetCanMap(&cm);
    HandleClear();
    sdo.SetNodeId(2);

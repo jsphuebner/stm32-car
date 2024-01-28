@@ -55,11 +55,15 @@ void IsaShunt::HandleClear()
 
 void IsaShunt::ResetCounters()
 {
-   uint32_t configData[2] = { 0x0030, 0 };
+   //Only reset if something was accumulated
+   if (initialized && GetValue(AS) != 0)
+   {
+      uint32_t configData[2] = { 0x0030, 0 };
 
-   Stop();
-   can->Send(CAN_ID_CONFIG, configData);
-   Start();
+      Stop();
+      can->Send(CAN_ID_CONFIG, configData);
+      Start();
+   }
 }
 
 void IsaShunt::Start()
@@ -79,6 +83,10 @@ void IsaShunt::Stop()
 int32_t IsaShunt::GetValue(channels chan)
 {
    int32_t result = 0;
+   uint32_t dummy[2] = { 0, 0 };
+
+   if (!initialized) Configure(dummy);
+
    switch (chan)
    {
    case CURRENT:
@@ -131,7 +139,7 @@ bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
       voltages[2] = (data[0] >> 16) + (data[1] << 16);
       break;
    case CAN_ID_TEMP:
-      power = (data[0] >> 16) + (data[1] << 16);
+      temp = (data[0] >> 16) + (data[1] << 16);
       break;
    case CAN_ID_POWER:
       power = (data[0] >> 16) + (data[1] << 16);
