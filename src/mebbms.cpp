@@ -27,10 +27,9 @@ const uint16_t socCurve[] =
    3380, 3426, 3547, 3622, 3671, 3694, 3703, 3719, 3734, 3757, 3777, 3808, 3848, 3890, 3931, 3977, 4033, 4082, 4120, 4168, 4200
 };
 
-const uint8_t socCurveTableItems = sizeof(socCurve) / sizeof(socCurve[0]);
-const uint8_t socCurveGranularity = 100 / socCurveTableItems;
-
-float energy[socCurveTableItems];
+static const uint8_t socCurveTableItems = sizeof(socCurve) / sizeof(socCurve[0]);
+static const uint8_t socCurveGranularity = 100 / socCurveTableItems;
+static float energy[socCurveTableItems];
 
 MebBms::MebBms(CanHardware* c)
 : canHardware(c), cellVoltages(0), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
@@ -201,7 +200,7 @@ float MebBms::GetRemainingEnergy(float soc)
 {
    //Find out the theoretical floating cell voltage by looking up at the given SoC
    int socIndex = soc / socCurveGranularity;
-   float socFraction = (soc - (socIndex * socCurveGranularity)) / socCurveGranularity; //where are we in the segment?
+   float socFraction = (soc - (socIndex * socCurveGranularity)) / (float)socCurveGranularity; //where are we in the segment?
    socIndex = MIN(socIndex, socCurveTableItems);
    socIndex = MAX(socIndex, 0);
    float energyAtSoc;
@@ -323,5 +322,8 @@ float MebBms::HighTempDerating()
 
 void MebBms::SetCellVoltage(int idx, float vtg)
 {
-   cellVoltages[idx] = IIRFILTERF((float)cellVoltages[idx], vtg, 2) + 0.5f;
+   if (cellVoltages[idx] == 0)
+      cellVoltages[idx] = vtg;
+   else
+      cellVoltages[idx] = IIRFILTERF((float)cellVoltages[idx], vtg, 2) + 0.5f;
 }

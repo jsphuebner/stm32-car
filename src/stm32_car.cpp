@@ -314,7 +314,7 @@ static void SetFuelGauge()
    int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
    int soctest = Param::GetInt(Param::soctest);
-   int soc = Param::GetInt(Param::soc);
+   int soc = Param::GetInt(Param::energy) / 600; //percent of 60l petrol
    soc = soctest != 0 ? soctest : soc;
    soc -= Param::GetInt(Param::gaugebalance);
    //Temperature compensation 1 digit per degree
