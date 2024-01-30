@@ -47,6 +47,7 @@ class IsaShunt : public CanCallback
       int32_t currentIntegral;
       int32_t powerIntegral;
       bool initialized;
+      bool started;
       uint8_t enableMask;
 };
 

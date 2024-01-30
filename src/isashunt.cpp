@@ -35,7 +35,7 @@ enum canids
 static int channel;
 
 IsaShunt::IsaShunt(CanHardware* hw, uint8_t enabledChannels)
-   : can(hw), current(0), initialized(false), enableMask(enabledChannels)
+   : can(hw), current(0), initialized(false), started(false), enableMask(enabledChannels)
 {
    can = hw;
    channel = 0;
@@ -78,6 +78,7 @@ void IsaShunt::Stop()
    uint32_t configData[2] = { 0x0034, 0 };
 
    can->Send(CAN_ID_CONFIG, configData);
+   started = false;
 }
 
 int32_t IsaShunt::GetValue(channels chan)
@@ -86,6 +87,7 @@ int32_t IsaShunt::GetValue(channels chan)
    uint32_t dummy[2] = { 0, 0 };
 
    if (!initialized) Configure(dummy);
+   if (initialized && !started) Start();
 
    switch (chan)
    {
@@ -166,6 +168,12 @@ void IsaShunt::Configure(uint32_t data[2])
       return;
    }
 
+   if ((data[0] & 0xFFFF) == 0x01B4)
+      started = true;
+
+   if ((data[0] & 0xF0F0) == 0x40A0)
+      channel = (data[0] & 0xF) + 1;
+
    if (!initialized)
    {
       //Data channels
@@ -188,7 +196,7 @@ void IsaShunt::Configure(uint32_t data[2])
          if ((1 << channel) & enableMask)
             configData[0] |= 0x200; //cyclic trigger
          can->Send(CAN_ID_CONFIG, configData);
-         channel++;
+         //channel++;
       }
       else
       {
