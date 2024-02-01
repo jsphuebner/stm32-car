@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.37.R-meb
+#define VER 1.38.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -86,6 +86,7 @@
     VALUE_ENTRY(idccdm,       "A",     2067 ) \
     VALUE_ENTRY(idcdc,        "A",     2081 ) \
     VALUE_ENTRY(iacobc,       "A",     2093 ) \
+    VALUE_ENTRY(ahdiff,       "Ah",    2111 ) \
     VALUE_ENTRY(energy,       "Wh",    2110 ) \
     VALUE_ENTRY(soc,          "%",     2052 ) \
     VALUE_ENTRY(soh,          "%",     2053 ) \
@@ -141,7 +142,7 @@
     VALUE_ENTRY(canerr,       LEC,      2103 ) \
     VALUE_ENTRY(uptime,       "",      2104 ) \
 
-//Next value Id: 2111
+//Next value Id: 2112
 
 #define VERSTR STRINGIFY(4=VER)
 #define LEC          "0=Ok, 1=Stuff, 2=Form, 3=Ack, 4=Recessive, 5=Dominant, 6=Crc, 7=Sw"

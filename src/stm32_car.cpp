@@ -358,6 +358,7 @@ static void Ms100Task(void)
    static uint32_t uptime = 0;
    static float estimatedSoc = 0;
    static uint32_t lastCurrentTime = 0;
+   static uint32_t asOffset = 0;
    uint32_t rtc = rtc_get_counter_val();
 
    DigIo::led_out.Toggle();
@@ -391,14 +392,16 @@ static void Ms100Task(void)
    {
       estimatedSoc = mebBms->EstimateSocFromVoltage();
       Param::SetFloat(Param::soc, estimatedSoc);
-      isa->ResetCounters();
+      //isa->ResetCounters();
+      asOffset = isa->GetValue(IsaShunt::AS);
       Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc));
    }
    else
    {
-      int32_t as = isa->GetValue(IsaShunt::AS);
+      int32_t as = isa->GetValue(IsaShunt::AS) - asOffset;
       float ah = as / 3600.0f;
       float socChange = 100 * ah / mebBms->GetMaximumAmpHours();
+      Param::SetFloat(Param::ahdiff, ah);
       Param::SetFloat(Param::soc, estimatedSoc + socChange);
       Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc + socChange));
    }

@@ -28,11 +28,11 @@ const uint16_t socCurve[] =
 };
 
 static const uint8_t socCurveTableItems = sizeof(socCurve) / sizeof(socCurve[0]);
-static const uint8_t socCurveGranularity = 100 / socCurveTableItems;
+static const uint8_t socCurveGranularity = 100 / (socCurveTableItems - 1);
 static float energy[socCurveTableItems];
 
 MebBms::MebBms(CanHardware* c)
-: canHardware(c), cellVoltages(0), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
+: canHardware(c), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
   balancerRunning(false), balCounter(0)
 {
    for (int i = 0; i < NumCells; i++)
@@ -204,6 +204,7 @@ float MebBms::GetRemainingEnergy(float soc)
    socIndex = MIN(socIndex, socCurveTableItems);
    socIndex = MAX(socIndex, 0);
    float energyAtSoc;
+
 
    if (socIndex < socCurveTableItems) //less than 100% SoC
    {
