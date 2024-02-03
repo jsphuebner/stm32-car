@@ -34,8 +34,8 @@ class MebBms : public CanCallback
       bool GetBalanceFlag(int idx) { return (balFlags[idx / CellsPerCmu] & 1 << (idx % CellsPerCmu)) > 0; }
       float GetMaximumChargeCurrent();
       float GetMaximumDischargeCurrent();
-      uint16_t GetMinCellVoltage() { return minCellVoltage; }
-      uint16_t GetMaxCellVoltage() { return maxCellVoltage; }
+      float GetMinCellVoltage() { return minCellVoltage; }
+      float GetMaxCellVoltage() { return maxCellVoltage; }
       float GetAvgCellVoltage() { return totalVoltage / NumCells; }
       float GetTotalVoltage() { return totalVoltage / 1000.0f; }
       float EstimateSocFromVoltage();
@@ -49,16 +49,16 @@ class MebBms : public CanCallback
 
    private:
       void Accumulate();
-      void SetCellVoltage(int idx, float vtg);
+      void SetCellVoltage(int idx, int vtg);
       float LowTempDerating();
       float HighTempDerating();
 
       CanHardware* canHardware;
       static const int CellsPerCmu = 12;
-      uint16_t cellVoltages[NumCells];
+      float cellVoltages[NumCells];
       uint16_t balFlags[NumCells / CellsPerCmu];
-      uint16_t maxCellVoltage;
-      uint16_t minCellVoltage;
+      float maxCellVoltage;
+      float minCellVoltage;
       float totalVoltage;
       float temps[NumCells / CellsPerCmu];
       float lowTemp;

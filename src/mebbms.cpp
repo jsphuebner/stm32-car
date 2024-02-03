@@ -206,7 +206,7 @@ float MebBms::GetRemainingEnergy(float soc)
    float energyAtSoc;
 
 
-   if (socIndex < socCurveTableItems) //less than 100% SoC
+   if (socIndex < (socCurveTableItems - 1)) //less than 100% SoC
    {
       float diff = energy[socIndex + 1] - energy[socIndex];
       energyAtSoc = energy[socIndex] + diff * socFraction;
@@ -275,11 +275,11 @@ bool MebBms::Alive(uint32_t time)
 
 void MebBms::Accumulate()
 {
-   int min = 4500, max = 0, sum = 0;
+   float min = 4500, max = 0, sum = 0;
 
    for (int i = 0; i < NumCells; i++)
    {
-      uint16_t voltage = GetCellVoltage(i);
+      float voltage = cellVoltages[i];
       sum += voltage;
       min = MIN(min, voltage);
       max = MAX(max, voltage);
@@ -321,10 +321,10 @@ float MebBms::HighTempDerating()
 	return factor;
 }
 
-void MebBms::SetCellVoltage(int idx, float vtg)
+void MebBms::SetCellVoltage(int idx, int vtg)
 {
    if (cellVoltages[idx] == 0)
       cellVoltages[idx] = vtg;
    else
-      cellVoltages[idx] = IIRFILTERF((float)cellVoltages[idx], vtg, 2) + 0.5f;
+      cellVoltages[idx] = IIRFILTERF(cellVoltages[idx], (float)vtg, 2);
 }
