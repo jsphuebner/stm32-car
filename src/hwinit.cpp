@@ -41,7 +41,12 @@
 */
 void clock_setup(void)
 {
+   #if TARGET == 107
+   #warning building for prototype board
+   rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE25_72MHZ]);
+   #elif TARGET == 103
    rcc_clock_setup_pll(&rcc_hse_configs[RCC_CLOCK_HSE8_72MHZ]);
+   #endif // TARGET
 
    //The reset value for PRIGROUP (=0) is not actually a defined
    //value. Explicitly set 16 preemtion priorities

@@ -25,6 +25,7 @@
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/iwdg.h>
 #include <libopencm3/stm32/crc.h>
+#include <libopencm3/stm32/f1/bkp.h>
 #include "stm32_can.h"
 #include "canmap.h"
 #include "cansdo.h"
@@ -51,12 +52,91 @@
 HWREV hwRev; //Hardware variant of board we are running on
 
 static Stm32Scheduler* scheduler;
-static bool chargeMode = false;
 static CanHardware* can;
 static CanMap* canMap;
 MebBms* mebBms;
 IsaShunt* isa;
 static int ignitionTimeout = 0;
+static int chargerTimeout = 0;
+
+static modes StateMachine(modes mode)
+{
+   static int startTime = 0;
+   modes newMode = mode;
+   int udcbms = Param::GetInt(Param::udcbms); // Total voltage from the Battery Management System (BMS)
+   int udcobc = Param::GetInt(Param::udcobc); // On-Board Charger voltage
+   bool chargePin = Param::GetBool(Param::din_charge); // State of the charging pin
+   bool invRunning = Param::GetInt(Param::udcinv) > 10; // This indicates if the inverter is sending on the CAN bus
+   bool invStarted = Param::GetInt(Param::invmode) == MOD_DRIVE; // Inverter has been started for driving
+   bool prechargeComplete = udcbms > 250 && (udcbms - udcobc) < 10; // Precharge process completion check
+   bool obcSocLimReached = Param::GetFloat(Param::soc) >= Param::GetFloat(Param::obcsoclimit); // SOC limit for On-Board Charging reached
+   bool fcSocLimReached = Param::GetFloat(Param::soc) >= Param::GetFloat(Param::fcsoclimit); // SOC limit for Fast Charging reached
+   bool keyStart = Param::GetBool(Param::din_start); // State of the key start
+   bool stationary = Param::GetInt(Param::speed) == 0; // Vehicle stationary check
+
+   if (chargerTimeout > 0)
+      chargerTimeout--;
+
+   switch (mode)
+   {
+   case MOD_OFF:
+      //we can't rely on the charge pin alone because it doesn't go high when cold starting into charge mode
+      if (chargePin || !invRunning)
+      {
+         if ((rtc_get_counter_val() - startTime) > 150)
+         {
+            if (chargerTimeout > 0) //if we get messages from the CCS interface we enter quick charge state
+               newMode = MOD_QUICKSTART;
+            else //otherwise we enter OBC state
+               newMode = MOD_CHARGESTART;
+         }
+      }
+      else if (invStarted)
+         newMode = MOD_DRIVE;
+      break;
+   case MOD_CHARGESTART:
+      if (!chargePin && keyStart && prechargeComplete)
+         newMode = MOD_DRIVE;
+      else if (obcSocLimReached)
+         newMode = MOD_CHARGESTART; //stay here until a higher limit is configured
+      else if (prechargeComplete)
+         newMode = MOD_CHARGE;
+      break;
+   case MOD_CHARGE:
+      if (obcSocLimReached)
+         newMode = MOD_CHARGEND;
+      else if (!chargePin && keyStart) //Contactor already closed, no precharge check
+         newMode = MOD_DRIVE;
+      break;
+   case MOD_QUICKSTART:
+      if (fcSocLimReached)
+         newMode = MOD_CHARGEND;
+      else if (ChaDeMo::ConnectorLocked())
+         newMode = MOD_QUICKCHARGE;
+      else if (!chargePin && keyStart && prechargeComplete)
+         newMode = MOD_DRIVE;
+      break;
+   case MOD_QUICKCHARGE:
+      if (fcSocLimReached)
+         newMode = MOD_CHARGEND;
+      else if (!chargePin && keyStart && prechargeComplete)
+         newMode = MOD_DRIVE;
+      break;
+   case MOD_CHARGEND:
+      if (!chargePin && keyStart && prechargeComplete)
+         newMode = MOD_DRIVE;
+      break;
+   case MOD_DRIVE:
+      if (stationary && chargePin)
+         newMode = MOD_OFF;
+      startTime = rtc_get_counter_val();
+      break;
+   default:
+      newMode = MOD_OFF;
+   }
+
+   return newMode;
+}
 
 static void Ms500Task(void)
 {
@@ -67,7 +147,7 @@ static void Ms500Task(void)
    bool cruiseLight = Param::GetBool(Param::cruiselight);
    int regenLevel = Param::GetInt(Param::regenlevel);
 
-   if (mode == MOD_RUN && modeLast == MOD_OFF)
+   if (mode == MOD_DRIVE && modeLast == MOD_OFF)
    {
       blinks = 10;
    }
@@ -84,7 +164,7 @@ static void Ms500Task(void)
    {
       Param::SetInt(Param::cruiselight, 0);
       //Signal regen level by number of blinks + 1
-      if (mode == MOD_RUN && regenLevel != regenLevelLast)
+      if (mode == MOD_DRIVE && regenLevel != regenLevelLast)
       {
 
          blinks = 2 * (regenLevel + 1);
@@ -138,7 +218,7 @@ static void ProcessCruiseControlButtons()
       Param::SetInt(Param::regenlevel, regenLevel);
    }
 
-   if (cruisestt & CRUISE_ON && Param::GetInt(Param::opmode) == MOD_RUN)
+   if (cruisestt & CRUISE_ON && Param::GetInt(Param::opmode) == MOD_DRIVE)
    {
       if (cruisespeed <= 0)
       {
@@ -196,57 +276,14 @@ static void ProcessCruiseControlButtons()
 
 static void RunChaDeMo()
 {
-   static uint32_t startTime = 0;
+   int opmode = Param::GetInt(Param::opmode);
 
-   if (Param::GetBool(Param::din_charge)) return; //do not run CHAdeMO when OBC is active
-
-   if (!chargeMode && rtc_get_counter_val() > 150 && rtc_get_counter_val() < 200) //200*10ms = 1s
-   {
-      //If 2s after boot we don't see voltage on the inverter
-      //the car is off and we are in charge mode
-      if (Param::GetInt(Param::udcinv) < 10)
-      {
-         //If we receive a voltage from the charger then we are in AC charge mode
-         if (Param::GetInt(Param::udcobc) > 200)
-         {
-            Param::SetInt(Param::din_charge, 1);
-            return;
-         }
-         chargeMode = true;
-         Param::SetInt(Param::opmode, MOD_CHARGESTART);
-         ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
-         startTime = rtc_get_counter_val();
-      }
-   }
-   else if (Param::GetInt(Param::opmode) == MOD_RUN)
-   {
-      if (!ChaDeMo::IsCanTimeout())
-      {
-         chargeMode = true;
-         Param::SetInt(Param::opmode, MOD_CHARGESTART);
-         ChaDeMo::SetVersion(Param::GetInt(Param::cdmversion));
-         startTime = rtc_get_counter_val();
-      }
-   }
-
-   /* 1s after entering charge mode, enable charge permission */
-   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && (rtc_get_counter_val() - startTime) > 100)
+   if (opmode == MOD_QUICKSTART)
    {
       ChaDeMo::SetEnabled(true);
    }
 
-   if (Param::GetInt(Param::opmode) == MOD_CHARGESTART && ChaDeMo::ConnectorLocked())
-   {
-      Param::SetInt(Param::opmode, MOD_CHARGELOCK);
-   }
-   //after locking tell EVSE that we closed the contactor (in fact we have no control)
-   if (Param::GetInt(Param::opmode) == MOD_CHARGELOCK)
-   {
-      ChaDeMo::SetContactor(true);
-      Param::SetInt(Param::opmode, MOD_CHARGE);
-   }
-
-   if (Param::GetInt(Param::opmode) == MOD_CHARGE)
+   if (opmode == MOD_QUICKCHARGE)
    {
       int chargeCur = Param::GetInt(Param::chgcurlim);
       int chargeLim = Param::GetInt(Param::chargelimit);
@@ -257,8 +294,9 @@ static void RunChaDeMo()
          ChaDeMo::CheckSensorDeviation(Param::GetInt(Param::udcbms));
    }
 
-   if (Param::GetInt(Param::opmode) == MOD_CHARGEND)
+   if (opmode == MOD_CHARGEND)
    {
+      ChaDeMo::SetEnabled(false);
       ChaDeMo::SetChargeCurrent(0);
    }
 
@@ -267,27 +305,19 @@ static void RunChaDeMo()
    ChaDeMo::SetSoC(Param::Get(Param::soc));
    Param::SetInt(Param::cdmcureq, ChaDeMo::GetRampedCurrentRequest());
 
-   if (chargeMode)
+   if (opmode == MOD_QUICKCHARGE)
    {
-      if (Param::GetInt(Param::batfull) ||
-          Param::Get(Param::soc) >= Param::Get(Param::fcsoclimit) ||
-          Param::GetInt(Param::chargelimit) == 0 ||
-          !mebBms->Alive(rtc_get_counter_val()))
-      {
-         if (!mebBms->Alive(rtc_get_counter_val()))
-         {
-            ChaDeMo::SetGeneralFault();
-         }
-         ChaDeMo::SetEnabled(false);
-         Param::SetInt(Param::opmode, MOD_CHARGEND);
-      }
+      if (!mebBms->Alive(rtc_get_counter_val()))
+         ChaDeMo::SetGeneralFault();
 
       Param::SetInt(Param::udccdm, ChaDeMo::GetChargerOutputVoltage());
       Param::SetInt(Param::idccdm, ChaDeMo::GetChargerOutputCurrent());
-      Param::SetInt(Param::din_forward, 0);
       ChaDeMo::SendMessages(can);
    }
    Param::SetInt(Param::cdmstatus, ChaDeMo::GetChargerStatus());
+
+   if (opmode == MOD_QUICKCHARGE || opmode == MOD_QUICKSTART || opmode == MOD_CHARGEND)
+      ChaDeMo::SendMessages(can);
 }
 
 static void SendVAG100msMessage()
@@ -314,7 +344,7 @@ static void SetFuelGauge()
    int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
    int soctest = Param::GetInt(Param::soctest);
-   int soc = Param::GetInt(Param::energy) / 600; //percent of 60l petrol
+   int soc = Param::GetInt(Param::energy) / 600; //percent of 60l petrol or in our case 60 kWh of energy
    soc = soctest != 0 ? soctest : soc;
    soc -= Param::GetInt(Param::gaugebalance);
    //Temperature compensation 1 digit per degree
@@ -331,7 +361,7 @@ static void CalcBatteryCurrentLimits()
    float cur = mebBms->GetMaximumChargeCurrent();
    Param::SetFloat(Param::bmschglim, cur);
 
-   if (Param::GetBool(Param::din_charge))
+   if (Param::GetInt(Param::opmode) == MOD_CHARGE)
    {
       if (DigIo::dcsw_out.Get() && mebBms->Alive(rtc_get_counter_val()) && MOD_CHARGE == Param::GetInt(Param::opmode))
       {
@@ -353,9 +383,100 @@ static void CalcBatteryCurrentLimits()
    Param::SetFloat(Param::discurlim, cur);
 }
 
+static void SwitchDcDcConverterAndHeater()
+{
+   static int dcdcDelay = 10;
+   bool heaterOnDrive = Param::Get(Param::tmpaux) < Param::Get(Param::heathresh);
+   //Switch on heater when outside temperature is below threshold,
+   //SoC is above threshold, heater command is on
+   //OR heater command is "Force"
+   //AND turn-on delay has expired
+   heaterOnDrive &= Param::Get(Param::soc) > Param::Get(Param::heatsoc);
+   heaterOnDrive &= Param::GetBool(Param::heatcmd);
+   heaterOnDrive |= Param::GetInt(Param::heatcmd) == CMD_FORCE;
+   heaterOnDrive &= dcdcDelay == 0;
+
+   if (DigIo::dcsw_out.Get())
+   {
+      if (dcdcDelay > 0)
+      {
+         dcdcDelay--;
+      }
+      else
+      {
+         if (Param::GetFloat(Param::uaux) < Param::GetFloat(Param::dcdcresume))
+         {
+            DigIo::dcdc_out.Set();
+         }
+         else if (Param::GetFloat(Param::uaux) > 14.1f && Param::GetFloat(Param::idcdc) < Param::GetFloat(Param::dcdcutoff))
+         {
+            DigIo::dcdc_out.Clear();
+         }
+      }
+   }
+   else
+   {
+      dcdcDelay = 10;
+      DigIo::dcdc_out.Clear();
+   }
+
+   switch (Param::GetInt(Param::opmode))
+   {
+   case MOD_DRIVE:
+      if (heaterOnDrive)
+         DigIo::heater_out.Set();
+      else
+         DigIo::heater_out.Clear();
+      break;
+   case MOD_CHARGE:
+      if (Param::GetBool(Param::heatcmd) && dcdcDelay == 0)
+         DigIo::heater_out.Set();
+      else
+         DigIo::heater_out.Clear();
+      break;
+   case MOD_QUICKSTART:
+   case MOD_QUICKCHARGE:
+      if (Param::GetBool(Param::heatcmd) && DigIo::dcsw_out.Get() && dcdcDelay == 0)
+         DigIo::heater_out.Set();
+      else
+         DigIo::heater_out.Clear();
+      break;
+   default:
+      DigIo::heater_out.Clear();
+      break;
+   }
+}
+
+/* Control vacuum pump. It only runs in drive mode
+* Pin level is inverted, so Set() turns off */
+static void SwitchVacuumPump()
+{
+   int vacuumthresh = Param::GetInt(Param::vacuumthresh);
+   int vacuumhyst = Param::GetInt(Param::vacuumhyst);
+   int vacuum = AnaIn::vacuum.Get();
+
+   Param::SetInt(Param::vacuum, vacuum);
+
+   switch (Param::GetInt(Param::opmode))
+   {
+   case MOD_DRIVE:
+      if (vacuum > vacuumthresh)
+      {
+         DigIo::vacuum_out.Clear();
+      }
+      else if (vacuum < vacuumhyst)
+      {
+         DigIo::vacuum_out.Set();
+      }
+      break;
+   default:
+      DigIo::vacuum_out.Set();
+      break;
+   }
+}
+
 static void Ms100Task(void)
 {
-   static uint32_t uptime = 0;
    static float estimatedSoc = 0;
    static uint32_t lastCurrentTime = 0;
    static uint32_t asOffset = 0;
@@ -378,8 +499,8 @@ static void Ms100Task(void)
    Param::SetFloat(Param::tmpbat6, mebBms->GetModuleTemperature(5));
    Param::SetFloat(Param::tmpbat7, mebBms->GetModuleTemperature(6));
    Param::SetFloat(Param::tmpbat8, mebBms->GetModuleTemperature(7));
-   Param::SetInt(Param::batmin, mebBms->GetMinCellVoltage());
-   Param::SetInt(Param::batmax, mebBms->GetMaxCellVoltage());
+   Param::SetFloat(Param::batmin, mebBms->GetMinCellVoltage());
+   Param::SetFloat(Param::batmax, mebBms->GetMaxCellVoltage());
    Param::SetFloat(Param::batavg, mebBms->GetAvgCellVoltage());
    Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
    Param::SetFloat(Param::idc, current);
@@ -388,39 +509,37 @@ static void Ms100Task(void)
    if (ABS(current) > 1)
       lastCurrentTime = rtc;
 
-   if ((rtc - lastCurrentTime) > 10000 || (rtc > 100 && rtc < 200)) //no current flow since 100s or startup
+   if (rtc < 100) //startup
+   {
+      estimatedSoc = FP_TOFLOAT(BKP_DR1);
+      asOffset = isa->GetValue(IsaShunt::AS);
+   }
+   else if ((rtc - lastCurrentTime) > 12000 || estimatedSoc == 0) //no current flow since 120s or failed to load previous SOC
    {
       estimatedSoc = mebBms->EstimateSocFromVoltage();
       Param::SetFloat(Param::soc, estimatedSoc);
       //isa->ResetCounters();
       asOffset = isa->GetValue(IsaShunt::AS);
       Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc));
+      BKP_DR1 = FP_FROMFLT(estimatedSoc);
    }
    else
    {
       int32_t as = isa->GetValue(IsaShunt::AS) - asOffset;
       float ah = as / 3600.0f;
       float socChange = 100 * ah / mebBms->GetMaximumAmpHours();
+      float soc = estimatedSoc + socChange;
       Param::SetFloat(Param::ahdiff, ah);
-      Param::SetFloat(Param::soc, estimatedSoc + socChange);
-      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc + socChange));
+      Param::SetFloat(Param::soc, soc);
+      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(soc));
+      BKP_DR1 = FP_FROMFLT(soc);
    }
 
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
    RunChaDeMo();
-
-   if (ignitionTimeout > 0)
-   {
-      ignitionTimeout--;
-   }
-   //Car has been turned off, reset inverter bus voltage and state
-   //Only do this when we are really sure we're not driving
-   else if (Param::GetInt(Param::speed) == 0)
-   {
-      Param::SetInt(Param::udcinv, 0);
-      Param::SetInt(Param::invmode, 0);
-   }
+   SwitchVacuumPump();
+   SwitchDcDcConverterAndHeater();
 
    SendVAG100msMessage();
    SetFuelGauge();
@@ -431,30 +550,45 @@ static void Ms100Task(void)
    }
 
    int invErr = Param::GetInt(Param::inverr);
-   if (invErr > 0)
+   if (Param::GetBool(Param::din_charge))
+   {
+      Param::SetInt(Param::errlights, 4); //EPC light
+   }
+   else if (invErr > 0)
    {
       if (invErr == 2 || invErr == 3) //throttle errors
          Param::SetInt(Param::errlights, 4); //EPC light
       else //all other errors
          Param::SetInt(Param::errlights, 8); //Engine error light
    }
+   else
+   {
+      Param::SetInt(Param::errlights, 0);
+   }
 
    Param::SetInt(Param::canrec, CAN_ESR(CAN1) >> 24);
    Param::SetInt(Param::cantec, (CAN_ESR(CAN1) >> 16) & 0xff);
    Param::SetInt(Param::canlec, (CAN_ESR(CAN1) >> 4) & 0x7);
    Param::SetInt(Param::canerr, CAN_ESR(CAN1) & 0x7);
-   Param::SetInt(Param::uptime, uptime++);
+   Param::SetInt(Param::uptime, rtc / 100);
 }
 
 static void GetDigInputs()
 {
    int canio = 0;
 
+   /* charge_in only reads high when the VCU isn't started up in charge mode with the car off
+    * not sure why. So when it is high we know for sure that PP is plugged in somewhere
+    * but when it is low it doesn't mean that nothing is plugged in
+    * It does go high when turning the car on into a charge session, so can be used as
+    * drive off protection */
+   Param::SetInt(Param::din_charge, DigIo::charge_in.Get());
+
    if (Param::GetInt(Param::cruisestt) & CRUISE_ON)
       canio |= CAN_IO_CRUISE;
    if (Param::GetBool(Param::din_start) || DigIo::start_in.Get())
       canio |= CAN_IO_START;
-   if (Param::GetBool(Param::din_brake) || DigIo::brake_in.Get())
+   if (Param::GetBool(Param::din_brake))
       canio |= CAN_IO_BRAKE;
    if (Param::GetBool(Param::din_forward))
       canio |= CAN_IO_FWD;
@@ -571,7 +705,8 @@ static void SendVag10MsMessages(float power)
       }
       consumptionCounter += consumptionIncrement;
    }
-   else
+   //Only accumulate regen, not charging current!
+   else if (Param::GetInt(Param::opmode) == MOD_DRIVE)
    {
       accumulatedRegen += -consumptionIncrement;
    }
@@ -584,44 +719,71 @@ static void SendVag10MsMessages(float power)
    can->Send(0x480, canData);
 }
 
-static void SwitchDcDcConverter()
+static void SwitchPositiveContactor()
 {
-   static int dcdcDelay = 100;
+   int udcbms = Param::GetInt(Param::udcbms);
+   int udcobc = Param::GetInt(Param::udcobc);
+   bool prechargeComplete = udcbms > 250 && (udcbms - udcobc) < 10;
+   bool noContactorPower = false;
 
-   if (DigIo::dcsw_out.Get())
+   if (ignitionTimeout > 0)
    {
-      if (dcdcDelay > 0)
-      {
-         dcdcDelay--;
-      }
-      else
-      {
-         if (Param::GetFloat(Param::uaux) < Param::GetFloat(Param::dcdcresume))
-         {
-            DigIo::dcdc_out.Set();
-         }
-         else if (Param::GetFloat(Param::uaux) > 14.1f && Param::GetFloat(Param::idcdc) < Param::GetFloat(Param::dcdcutoff))
-         {
-            DigIo::dcdc_out.Clear();
-         }
-      }
+      ignitionTimeout--;
    }
-   else
+   //Car has been turned off as in we no longer receive certain CAN messages
+   //With the car off the contactors will loose power
+   //So we need to release the turn on signal as well
+   //otherwise when the ignition is turned back on
+   //the positive contactor will close without precharging
+   //Only do this when we are really sure we're not driving
+   else if (Param::GetInt(Param::speed) == 0)
    {
-      dcdcDelay = 100;
-      DigIo::dcdc_out.Clear();
+      noContactorPower = true;
+      Param::SetInt(Param::udcobc, 0); //delete stale value
+   }
+
+   switch (Param::GetInt(Param::opmode))
+   {
+   case MOD_CHARGE:
+   case MOD_DRIVE:
+      DigIo::dcsw_out.Set();
+      break;
+   case MOD_QUICKSTART:
+   case MOD_QUICKCHARGE:
+      if (noContactorPower)
+         DigIo::dcsw_out.Clear();
+      else if (prechargeComplete)
+         DigIo::dcsw_out.Set();
+      break;
+   default:
+      break;
+   }
+}
+
+static void SetRevCounter()
+{
+   switch (Param::GetInt(Param::opmode))
+   {
+   case MOD_DRIVE:
+      Param::SetInt(Param::speedmod, MAX(700, Param::GetInt(Param::speed)));
+      Param::SetInt(Param::din_forward, 1);
+      break;
+   case MOD_QUICKCHARGE:
+      Param::SetInt(Param::speedmod, Param::GetInt(Param::power) * 100);
+      Param::SetInt(Param::din_forward, 0);
+      break;
+   default:
+      Param::SetInt(Param::speedmod, 0);
+      Param::SetInt(Param::din_forward, 0);
+      break;
    }
 }
 
 static void Ms10Task(void)
 {
-   int vacuumthresh = Param::GetInt(Param::vacuumthresh);
-   int vacuumhyst = Param::GetInt(Param::vacuumhyst);
    int oilthresh = Param::GetInt(Param::oilthresh);
    int oilhyst = Param::GetInt(Param::oilhyst);
-   int vacuum = AnaIn::vacuum.Get();
    int speed = Param::GetInt(Param::speed);
-   int invmode = Param::GetInt(Param::invmode);
    float idc = Param::GetFloat(Param::idc);
    float udcbms = Param::GetFloat(Param::udcbms);
    float power = (idc * udcbms) / 1000;
@@ -629,128 +791,21 @@ static void Ms10Task(void)
    Param::SetFloat(Param::power, power);
 
    if (speed > oilthresh)
-   {
       DigIo::oil_out.Set();
-   }
    else if (speed < oilhyst)
-   {
       DigIo::oil_out.Clear();
-   }
-
-   if (invmode == MOD_RUN)
-   {
-      if (vacuum > vacuumthresh)
-      {
-         DigIo::vacuum_out.Clear();
-      }
-      else if (vacuum < vacuumhyst)
-      {
-         DigIo::vacuum_out.Set();
-      }
-
-      //Switch on heater when outside temperature is below threshold,
-      //SoC is above threshold, heater command is on and handbrake is off
-      //OR heater command is "Force"
-      if ((Param::Get(Param::tmpaux) < Param::Get(Param::heathresh) &&
-           Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
-           Param::GetBool(Param::heatcmd)) ||
-           Param::GetInt(Param::heatcmd) == CMD_FORCE
-          )
-      {
-         DigIo::heater_out.Set();
-      }
-      else
-      {
-         DigIo::heater_out.Clear();
-      }
-   }
-   else if (chargeMode)
-   {
-      DigIo::vacuum_out.Set(); //Turn off vacuum pump
-
-      //Turn on heater (or rather offgrid inverter) when SoC is sufficient
-      //There is a turn on request and DC switch is closed
-      if (Param::Get(Param::soc) > Param::Get(Param::heatsoc) &&
-          Param::GetBool(Param::heatcmd) &&
-          DigIo::dcsw_out.Get())
-      {
-         DigIo::heater_out.Set();
-      }
-      else
-      {
-         DigIo::heater_out.Clear();
-      }
-   }
-   else
-   {
-      DigIo::vacuum_out.Set();
-      DigIo::heater_out.Clear();
-   }
-
-   if (Param::GetBool(Param::din_charge))
-   {
-      int udcbms = Param::GetInt(Param::udcbms);
-      int udcobc = Param::GetInt(Param::udcobc);
-      float soc = Param::GetFloat(Param::soc);
-      float soclim = Param::GetFloat(Param::obcsoclimit);
-
-      chargeMode = true;
-      Param::SetInt(Param::din_forward, 0);
-
-      if (soc >= soclim)
-      {
-         Param::SetInt(Param::opmode, MOD_CHARGEND);
-         Param::SetInt(Param::dout_evse, 0);
-      }
-      else if (udcbms > 250 && (udcbms - udcobc) < 10)
-      {
-         DigIo::dcsw_out.Set();
-         Param::SetInt(Param::opmode, MOD_CHARGE);
-         Param::SetInt(Param::dout_evse, 1);
-      }
-      else
-      {
-         Param::SetInt(Param::opmode, MOD_CHARGESTART);
-      }
-   }
-   else if (invmode == MOD_OFF)
-   {
-      Param::SetInt(Param::speedmod, 0);
-
-      //Inverter is unpowered -> DC relays are unpowered -> release turn-on signal so they
-      //don't turn on without precharge
-      if (Param::GetInt(Param::udcinv) == 0)
-      {
-         DigIo::heater_out.Clear();
-         DigIo::dcsw_out.Clear();
-      }
-   }
-   else
-   {
-      DigIo::dcsw_out.Set();
-      Param::SetFloat(Param::speedmod, MAX(700, Param::GetFloat(Param::speed)));
-      Param::SetInt(Param::din_forward, !chargeMode);
-   }
 
    GetDigInputs();
+   Param::SetInt(Param::opmode, StateMachine((modes)Param::GetInt(Param::opmode)));
    ProcessThrottle();
    LimitThrottle();
-   SwitchDcDcConverter();
+   SwitchPositiveContactor();
+   SetRevCounter();
 
    ErrorMessage::SetTime(rtc_get_counter_val());
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
    Param::SetInt(Param::dout_dcdc, DigIo::dcdc_out.Get());
-   Param::SetInt(Param::vacuum, vacuum);
    Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
-
-   if (chargeMode)
-   {
-      Param::SetInt(Param::speedmod, 0);
-   }
-   else
-   {
-      Param::SetInt(Param::opmode, Param::GetInt(Param::invmode));
-   }
 
    SendVag10MsMessages(power);
    Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);
@@ -793,13 +848,14 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
    {
    case 0x108:
       ChaDeMo::Process108Message(data);
+      chargerTimeout = 50;
       break;
    case 0x109:
       ChaDeMo::Process109Message(data);
       break;
    case 0x420:
       Param::SetFloat(Param::tmpaux, ((((data[0] >> 8) & 0xFF) - 100.0f)) / 2);
-      ignitionTimeout = 10;
+      ignitionTimeout = 50;
       break;
    case 0x377:
       Param::SetFloat(Param::uaux, (((data[0] & 0xFF) << 8) + ((data[0] & 0xFF00) >> 8)) * 0.01f);
@@ -808,7 +864,7 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
       tmpdcdc[1] = (data[1] >> 8) & 0xFF;
       tmpdcdc[2] = (data[1] >> 16) & 0xFF;
       Param::SetFloat(Param::tmpdcdc, MAX(MAX(tmpdcdc[0], tmpdcdc[1]), tmpdcdc[2]) - 40);
-      ignitionTimeout = 10;
+      ignitionTimeout = 50;
       break;
    case 0x38A:
       if (4 == dlc)
@@ -855,6 +911,10 @@ extern "C" int main(void)
    nvic_setup();
    parm_load();
 
+   #if TARGET == 107
+   gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON, AFIO_MAPR_USART3_REMAP_FULL_REMAP);
+   #endif
+
    Stm32Can c(CAN1, CanHardware::Baud500);
    FunctionPointerCallback cb(CanCallback, HandleClear);
 
@@ -875,15 +935,17 @@ extern "C" int main(void)
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
 
+   #if TARGET == 107
+   Terminal t(USART3, termCmds, true);
+   #else
    Terminal t(USART3, termCmds);
+   #endif
 
    s.AddTask(Ms10Task, 10);
    s.AddTask(Ms100Task, 100);
    s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //COM protocol version 4
-   Param::SetInt(Param::tmpaux, 87); //sends n/a value to Leaf BMS
-   //Param::SetInt(Param::heatcmd, 0); //Make sure we don't load this from flash
 
    while(1)
    {

@@ -3,6 +3,12 @@
 
 #include "hwdefs.h"
 
+#if TARGET == 107
+#define LEDIO GPIO6
+#else
+#define LEDIO GPIO12
+#endif // TARGET
+
 #define DIG_IO_LIST \
     DIG_IO_ENTRY(charge_in,   GPIOC, GPIO7,  PinMode::INPUT_PD)   \
     DIG_IO_ENTRY(start_in,    GPIOB, GPIO6,  PinMode::INPUT_PD)   \
@@ -14,7 +20,7 @@
     DIG_IO_ENTRY(dcsw_out,    GPIOC, GPIO13, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(dcdc_out,    GPIOC, GPIO11, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(vacuum_out,  GPIOB, GPIO1,  PinMode::OUTPUT)      \
-    DIG_IO_ENTRY(led_out,     GPIOC, GPIO12, PinMode::OUTPUT)      \
+    DIG_IO_ENTRY(led_out,     GPIOC, LEDIO,  PinMode::OUTPUT)      \
     DIG_IO_ENTRY(heater_out,  GPIOC, GPIO10, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(oil_out,     GPIOC, GPIO5,  PinMode::OUTPUT)      \
 

@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.38.R-meb
+#define VER 1.40.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -147,7 +147,7 @@
 #define VERSTR STRINGIFY(4=VER)
 #define LEC          "0=Ok, 1=Stuff, 2=Form, 3=Ack, 4=Recessive, 5=Dominant, 6=Crc, 7=Sw"
 #define CERR         "0=None, 1=ErrorWarning, 2=ErrorPassive, 4=BusOff"
-#define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=ConnectorLock, 4=Charge, 5=ChargeStop"
+#define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=QuickStart, 4=Charge, 5=QuickCharge, 6=ChargeStop"
 #define DIRS         "-1=Reverse, 0=Neutral, 1=Forward"
 #define ONOFF        "0=Off, 1=On, 2=na"
 #define ONOFFFORCE   "0=Off, 1=On, 2=Force"
@@ -175,10 +175,11 @@
 enum modes
 {
    MOD_OFF = 0,
-   MOD_RUN,
+   MOD_DRIVE,
    MOD_CHARGESTART,
-   MOD_CHARGELOCK,
+   MOD_QUICKSTART,
    MOD_CHARGE,
+   MOD_QUICKCHARGE,
    MOD_CHARGEND,
    MOD_LAST
 };
