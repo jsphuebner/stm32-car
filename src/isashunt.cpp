@@ -35,7 +35,8 @@ enum canids
 static int channel;
 
 IsaShunt::IsaShunt(CanHardware* hw, uint8_t enabledChannels)
-   : can(hw), current(0), initialized(false), started(false), enableMask(enabledChannels)
+   : can(hw), current(0), power(0), currentIntegral(0), powerIntegral(0),
+     initialized(false), started(false), enableMask(enabledChannels)
 {
    can = hw;
    channel = 0;
@@ -84,10 +85,8 @@ void IsaShunt::Stop()
 int32_t IsaShunt::GetValue(channels chan)
 {
    int32_t result = 0;
-   uint32_t dummy[2] = { 0, 0 };
 
-   if (!initialized) Configure(dummy);
-   if (initialized && !started) Start();
+   if (!initialized || !started) return 0;
 
    switch (chan)
    {
@@ -155,6 +154,13 @@ bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
    }
 
    return isIsa;
+}
+
+void IsaShunt::InitializeAndStartIfNeeded()
+{
+   uint32_t dummy[2] = { 0, 0 };
+   if (!initialized) Configure(dummy);
+   if (initialized && !started) Start();
 }
 
 void IsaShunt::Configure(uint32_t data[2])

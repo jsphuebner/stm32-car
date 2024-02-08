@@ -33,7 +33,8 @@ class IsaShunt : public CanCallback
       void ResetCounters();
       void Stop();
       void Start();
-      bool IsReady() { return initialized; }
+      void InitializeAndStartIfNeeded();
+      bool IsReady() { return started; }
       int32_t GetValue(channels chan);
 
    private:
