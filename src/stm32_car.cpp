@@ -83,6 +83,7 @@ static modes StateMachine(modes mode)
       //we can't rely on the charge pin alone because it doesn't go high when cold starting into charge mode
       if (chargePin || !invRunning)
       {
+         //Give the CCS interface some time to start up and send messages
          if ((rtc_get_counter_val() - startTime) > 150)
          {
             if (chargerTimeout > 0) //if we get messages from the CCS interface we enter quick charge state
@@ -336,6 +337,11 @@ static void SendVAG100msMessage()
    can->Send(0x580, (uint32_t*)canData);
    seqCtr = (seqCtr + 1) & 0x3;
    ctr = (ctr + 1) & 0xF;
+
+   Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
+   canData[1] = 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3);
+   canData[0] = canData[2] = canData[3] = canData[4] = canData[5] = canData[6] = canData[7] = 0;
+   can->Send(0x288, (uint32_t*)canData);
 }
 
 static void SetFuelGauge()
@@ -358,7 +364,7 @@ static void SetFuelGauge()
 
 static void CalcBatteryCurrentLimits()
 {
-   float cur = mebBms->GetMaximumChargeCurrent();
+   float cur = mebBms->GetMaximumChargeCurrent(Param::GetFloat(Param::cellmax));
    Param::SetFloat(Param::bmschglim, cur);
 
    if (Param::GetInt(Param::opmode) == MOD_CHARGE)
@@ -379,7 +385,7 @@ static void CalcBatteryCurrentLimits()
 
    Param::SetFloat(Param::chgcurlim, cur);
 
-   cur = mebBms->GetMaximumDischargeCurrent();
+   cur = mebBms->GetMaximumDischargeCurrent(Param::GetFloat(Param::cellmin));
    Param::SetFloat(Param::discurlim, cur);
 }
 
@@ -475,6 +481,19 @@ static void SwitchVacuumPump()
    }
 }
 
+static void SwitchEvse()
+{
+   switch (Param::GetInt(Param::opmode))
+   {
+   case MOD_CHARGE:
+      Param::SetInt(Param::dout_evse, 1);
+      break;
+   default:
+      Param::SetInt(Param::dout_evse, 0);
+      break;
+   }
+}
+
 static void Ms100Task(void)
 {
    static float estimatedSoc = 0;
@@ -505,6 +524,8 @@ static void Ms100Task(void)
    Param::SetFloat(Param::udcbms, mebBms->GetTotalVoltage());
    Param::SetFloat(Param::idc, current);
    //Param::SetFloat(Param::udccdm, cpVtg);
+
+   isa->InitializeAndStartIfNeeded();
 
    if (ABS(current) > 1)
       lastCurrentTime = rtc;
@@ -540,6 +561,7 @@ static void Ms100Task(void)
    RunChaDeMo();
    SwitchVacuumPump();
    SwitchDcDcConverterAndHeater();
+   SwitchEvse();
 
    SendVAG100msMessage();
    SetFuelGauge();
@@ -762,38 +784,40 @@ static void SwitchPositiveContactor()
 
 static void SetRevCounter()
 {
+   float power = Param::GetFloat(Param::power);
+   power = MAX(0, power); //no negative values
+
    switch (Param::GetInt(Param::opmode))
    {
    case MOD_DRIVE:
       Param::SetInt(Param::speedmod, MAX(700, Param::GetInt(Param::speed)));
       Param::SetInt(Param::din_forward, 1);
+      DigIo::oil_out.Set(); //Simulate valid oil pressure
       break;
    case MOD_QUICKCHARGE:
-      Param::SetInt(Param::speedmod, Param::GetInt(Param::power) * 100);
+      Param::SetInt(Param::speedmod, power * 100);
       Param::SetInt(Param::din_forward, 0);
+      //Simulate oil pressure switch, on above 900 rpm = 9 kW, off below 500 rpm = 5 kw
+      if (power > 9)
+         DigIo::oil_out.Set();
+      else if (power < 5)
+         DigIo::oil_out.Clear();
       break;
    default:
       Param::SetInt(Param::speedmod, 0);
       Param::SetInt(Param::din_forward, 0);
+      DigIo::oil_out.Clear(); //Simulate no oil pressure
       break;
    }
 }
 
 static void Ms10Task(void)
 {
-   int oilthresh = Param::GetInt(Param::oilthresh);
-   int oilhyst = Param::GetInt(Param::oilhyst);
-   int speed = Param::GetInt(Param::speed);
    float idc = Param::GetFloat(Param::idc);
    float udcbms = Param::GetFloat(Param::udcbms);
    float power = (idc * udcbms) / 1000;
 
    Param::SetFloat(Param::power, power);
-
-   if (speed > oilthresh)
-      DigIo::oil_out.Set();
-   else if (speed < oilhyst)
-      DigIo::oil_out.Clear();
 
    GetDigInputs();
    Param::SetInt(Param::opmode, StateMachine((modes)Param::GetInt(Param::opmode)));
@@ -805,7 +829,6 @@ static void Ms10Task(void)
    ErrorMessage::SetTime(rtc_get_counter_val());
    Param::SetInt(Param::dout_dcsw, DigIo::dcsw_out.Get());
    Param::SetInt(Param::dout_dcdc, DigIo::dcdc_out.Get());
-   Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
 
    SendVag10MsMessages(power);
    Param::SetInt(Param::canctr, (Param::GetInt(Param::canctr) + 1) & 0xF);
