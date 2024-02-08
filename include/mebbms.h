@@ -32,8 +32,8 @@ class MebBms : public CanCallback
       uint16_t GetCellVoltage(int idx) const { return cellVoltages[idx]; }
       float GetModuleTemperature(int idx) const { return temps[idx]; }
       bool GetBalanceFlag(int idx) { return (balFlags[idx / CellsPerCmu] & 1 << (idx % CellsPerCmu)) > 0; }
-      float GetMaximumChargeCurrent();
-      float GetMaximumDischargeCurrent();
+      float GetMaximumChargeCurrent(float cellmax);
+      float GetMaximumDischargeCurrent(float cellmin);
       float GetMinCellVoltage() { return minCellVoltage; }
       float GetMaxCellVoltage() { return maxCellVoltage; }
       float GetAvgCellVoltage() { return totalVoltage / NumCells; }

@@ -117,16 +117,16 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
    return false;
 }
 
-float MebBms::GetMaximumChargeCurrent()
+float MebBms::GetMaximumChargeCurrent(float cellmax)
 {
    const float lowTempDerate = LowTempDerating();
    const float highTempDerate = HighTempDerating();
    const float cc1Current = 275.0f * lowTempDerate;
-   const uint16_t cv1Voltage = 3950;
+   const uint16_t cv1Voltage = 3960;
    const float cc2Current = 170.0f * lowTempDerate;
    const uint16_t cv2Voltage = 4050;
    const float cc3Current = 114.0f * lowTempDerate;
-   const uint16_t cv3Voltage = 4200;
+   const uint16_t cv3Voltage = cellmax;
    float result;
 
    /* Here we try to mimic VWs charge curve for a warm battery.
@@ -140,7 +140,7 @@ float MebBms::GetMaximumChargeCurrent()
     * High temp derating is done by generally capping charge current
     */
 
-   float cv1Result = (cv1Voltage - maxCellVoltage) * 6; //P-controller gain factor 6 A/mV
+   float cv1Result = (cv1Voltage - maxCellVoltage) * 2; //P-controller gain factor 2 A/mV
    cv1Result = MIN(cv1Result, cc1Current);
 
    float cv2Result = (cv2Voltage - maxCellVoltage) * 2;
@@ -156,11 +156,10 @@ float MebBms::GetMaximumChargeCurrent()
    return result;
 }
 
-float MebBms::GetMaximumDischargeCurrent()
+float MebBms::GetMaximumDischargeCurrent(float cellVoltageCutoff)
 {
    const float highTempDerate = HighTempDerating();
    const float maxDischargeCurrent = 500;
-   const float cellVoltageCutoff = 3380;
    float result = (minCellVoltage - cellVoltageCutoff) * 5;
    result = MIN(maxDischargeCurrent, result);
    result = MAX(result, 0);
@@ -323,6 +322,7 @@ float MebBms::HighTempDerating()
 
 void MebBms::SetCellVoltage(int idx, int vtg)
 {
+   if (vtg < 1000 || vtg > 4400) return;
    if (cellVoltages[idx] == 0)
       cellVoltages[idx] = vtg;
    else

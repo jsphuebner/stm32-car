@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.40.R-meb
+#define VER 1.41.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -27,6 +27,8 @@
 //Next param id (increase when adding new parameter!): 115
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
+    PARAM_ENTRY(CAT_BMS,      cellmin,     "mV",      2500,   3600,   3380,   115 ) \
+    PARAM_ENTRY(CAT_BMS,      cellmax,     "mV",      4000,   4300,   4200,   116 ) \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
     PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,   5,      7   ) \
@@ -41,11 +43,8 @@
     PARAM_ENTRY(CAT_POWER,    fcsoclimit,  "%",       0,      100,    100,    111 ) \
     PARAM_ENTRY(CAT_POWER,    udclimit,    "V",       0,      600,    400,    92  ) \
     PARAM_ENTRY(CAT_POWER,    cdmcheckena, ONOFF,     0,      1,      1,      13  ) \
-    PARAM_ENTRY(CAT_POWER,    cdmversion,  "",        0,      2,      1,      14  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilthresh,   "rpm",     0,      10000,  900,    90  ) \
-    PARAM_ENTRY(CAT_CONTACT,  oilhyst,     "rpm",     0,      10000,  500,    91  ) \
     PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcresume,  "V",       10,     15,     12.5,   108 ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcutoff,   "A",       0,     150,     15,     109 ) \
@@ -160,14 +159,13 @@
 #define CRUISESTATES "0=None, 1=On, 2=Disable, 4=SetN, 8=SetP"
 #define CDMSTAT      "1=Charging, 2=Malfunction, 4=ConnLock, 8=BatIncomp, 16=SystemMalfunction, 32=Stop"
 #define LIMRS        "0=Normal, 1=CapDrop, 2=Malfunction, 3=HighTemp, 4=LowTemp"
-#define CAT_THROTTLE "Throttle"
 #define CAT_POWER    "Power Limit"
 #define CAT_CONTACT  "Contactor Control"
-#define CAT_TEST     "Testing"
 #define CAT_COMM     "Communication"
 #define CAT_GAUGE    "Fuel Gauge"
 #define CAT_ESP      "ESP/ABS integration"
 #define CAT_CRUISE   "Cruise Control"
+#define CAT_BMS      "Battery settings"
 
 #define CAN_PERIOD_100MS    0
 #define CAN_PERIOD_10MS     1
