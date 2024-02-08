@@ -139,11 +139,13 @@
     VALUE_ENTRY(cantec,       "",      2101 ) \
     VALUE_ENTRY(canlec,       LEC,      2102 ) \
     VALUE_ENTRY(canerr,       LEC,      2103 ) \
+    VALUE_ENTRY(rstreason,    RST,      2112 ) \
     VALUE_ENTRY(uptime,       "",      2104 ) \
 
-//Next value Id: 2112
+//Next value Id: 2113
 
 #define VERSTR STRINGIFY(4=VER)
+#define RST          "1=Pin, 2=POR, 4=Sw, 8=IWDG, 16=WWDG, 32=LowPower"
 #define LEC          "0=Ok, 1=Stuff, 2=Form, 3=Ack, 4=Recessive, 5=Dominant, 6=Crc, 7=Sw"
 #define CERR         "0=None, 1=ErrorWarning, 2=ErrorPassive, 4=BusOff"
 #define OPMODES      "0=Off, 1=Run, 2=ChargeStart, 3=QuickStart, 4=Charge, 5=QuickCharge, 6=ChargeStop"

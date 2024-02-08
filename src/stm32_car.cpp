@@ -969,6 +969,8 @@ extern "C" int main(void)
    s.AddTask(Ms500Task, 500);
 
    Param::SetInt(Param::version, 4); //COM protocol version 4
+   Param::SetInt(Param::rstreason, RCC_CSR >> 26);
+   RCC_CSR |= RCC_CSR_RMVF;
 
    while(1)
    {
