@@ -22,14 +22,22 @@
 
 #define FIRST_VTG_ID    0x1C0
 
-const uint16_t socCurve[] =
-{  /* 0%   5%   10%   15%   20%   25%   30%   35%   40%   45%   50%   55%   60%   65%   70%   75%   80%   85%   90%   95%  100%*/
-   3380, 3426, 3547, 3622, 3671, 3694, 3703, 3719, 3734, 3757, 3777, 3808, 3848, 3890, 3931, 3977, 4033, 4082, 4120, 4168, 4200
+const uint16_t vtgToSoc[] =
+{/*2.80V  2.85  2.90  2.95  3.00  3.05 3.10  3.15  3.20  3.25  3.30  3.35  3.40  3.45  3.50  3.55  3.60  3.65  3.70  3.75  3.80  3.85  3.90  3.95  4.00  4.05  4.10  4.15  4.20 */
+   0,     12,   31,   55,   80,   116,	153,	202,	239,	325,	496,	701,	1231,	1794,	2307,	3368,	4388,	5368,	5949,	6326,	6742,	7232,	7708,	8104,	8575,	8996,	9446,	9753,	10000
 };
 
-static const uint8_t socCurveTableItems = sizeof(socCurve) / sizeof(socCurve[0]);
-static const uint8_t socCurveGranularity = 100 / (socCurveTableItems - 1);
-static float energy[socCurveTableItems];
+const uint16_t socToSoe[] =
+{/*0	5%	  10%    15%   20%   25%   30%   35%   40%  45%    50%   55%   60%   65%   70%   75%   80%   85%   90%   95%   100% */
+   0,	415,	870,	1334,	1803,	2278,	2758,	3241,	3727,	4216,	4709,	5206,	5707,	6217,	6734,	7259,	7791,	8331,	8879,	9434,	10000
+};
+
+static const uint16_t tableMinVtg = 2800; //mV
+static const uint16_t tableMaxVtg = 4200; //mV
+static const uint8_t socCurveTableItems = sizeof(vtgToSoc) / sizeof(vtgToSoc[0]);
+static const uint8_t socCurveGranularity = 50; //mV between entries
+static const uint8_t energyCurveTableItems = sizeof(socToSoe) / sizeof(socToSoe[0]);
+static const float energyCurveGranularity = 100.0f / (energyCurveTableItems - 1);
 
 MebBms::MebBms(CanHardware* c)
 : canHardware(c), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
@@ -43,15 +51,6 @@ MebBms::MebBms(CanHardware* c)
       temps[i] = 0;
       lastReceived[i] = 0;
       balFlags[i] = 0;
-   }
-
-   const float ampHoursInSegment = GetMaximumAmpHours() * socCurveGranularity / 100.0f;
-   energy[0] = 0;
-
-   for (int i = 1; i < socCurveTableItems; i++)
-   {
-      float energyInSegment = NumCells * ampHoursInSegment * (socCurve[i] + socCurve[i - 1]) / 2000.0f;
-      energy[i] = energy[i - 1] + energyInSegment;
    }
 
    canHardware->AddCallback(this);
@@ -170,23 +169,14 @@ float MebBms::GetMaximumDischargeCurrent(float cellVoltageCutoff)
 
 float MebBms::EstimateSocFromVoltage()
 {
-   const int n = sizeof(socCurve) / sizeof(socCurve[0]);
+   int lookupVoltage = MIN(tableMaxVtg, minCellVoltage) - tableMinVtg;
+   lookupVoltage = MAX(socCurveGranularity, lookupVoltage);
+   int socIndex = lookupVoltage / socCurveGranularity;
+   float socFraction = (lookupVoltage - (socIndex * socCurveGranularity)) / (float)socCurveGranularity; //where are we in the segment?
+   float diff = vtgToSoc[socIndex + 1] - vtgToSoc[socIndex];
+   float soc = vtgToSoc[socIndex] + diff * socFraction;
 
-   for (int i = 0; i < n; i++)
-   {
-      if (minCellVoltage < socCurve[i])
-      {
-         if (i == 0) return 0;
-
-         float soc = i * 5;
-         float lutDiff = socCurve[i] - socCurve[i - 1];
-         float valDiff = socCurve[i] - minCellVoltage;
-         //interpolate
-         soc -= (valDiff / lutDiff) * socCurveGranularity;
-         return soc;
-      }
-   }
-   return 100;
+   return soc / 100;
 }
 
 /** \brief Calculates the theoretically remaining energy in Wh at the given SoC
@@ -197,24 +187,24 @@ float MebBms::EstimateSocFromVoltage()
  */
 float MebBms::GetRemainingEnergy(float soc)
 {
-   //Find out the theoretical floating cell voltage by looking up at the given SoC
-   int socIndex = soc / socCurveGranularity;
-   float socFraction = (soc - (socIndex * socCurveGranularity)) / (float)socCurveGranularity; //where are we in the segment?
+   const float nominalVoltage = 3.67f;
+   int socIndex = soc / energyCurveGranularity;
+   float socFraction = (soc - (socIndex * energyCurveGranularity)) / (float)energyCurveGranularity; //where are we in the segment?
    socIndex = MIN(socIndex, socCurveTableItems);
    socIndex = MAX(socIndex, 0);
    float energyAtSoc;
 
-
    if (socIndex < (socCurveTableItems - 1)) //less than 100% SoC
    {
-      float diff = energy[socIndex + 1] - energy[socIndex];
-      energyAtSoc = energy[socIndex] + diff * socFraction;
+      float diff = socToSoe[socIndex + 1] - socToSoe[socIndex];
+      energyAtSoc = (float)socToSoe[socIndex] + diff * socFraction;
    }
    else //100%
    {
-      energyAtSoc = energy[socCurveTableItems - 1];
+      energyAtSoc = socToSoe[socCurveTableItems - 1];
    }
-   return energyAtSoc;
+   //divide by 10000 because SoE curve unit is 100 * 100%
+   return energyAtSoc * nominalVoltage * NumCells * GetMaximumAmpHours() / 10000;
 }
 
 void MebBms::Balance(bool enable)
@@ -312,7 +302,7 @@ float MebBms::LowTempDerating()
 
 float MebBms::HighTempDerating()
 {
-   const float maxTemp = 45.0f;
+   const float maxTemp = 50.0f;
 	float factor = (maxTemp - highTemp) * 0.4f;
 	factor = MIN(1, factor);
 	factor = MAX(0, factor);
@@ -322,9 +312,9 @@ float MebBms::HighTempDerating()
 
 void MebBms::SetCellVoltage(int idx, int vtg)
 {
-   if (vtg < 1000 || vtg > 4400) return;
+   if (vtg < 1000 || vtg > 4400) return; //Ignore implausible values
    if (cellVoltages[idx] == 0)
-      cellVoltages[idx] = vtg;
+      cellVoltages[idx] = vtg; //The first value initializes the filter to speed up settle time
    else
       cellVoltages[idx] = IIRFILTERF(cellVoltages[idx], (float)vtg, 2);
 }
