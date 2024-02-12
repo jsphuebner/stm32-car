@@ -144,6 +144,7 @@ static void Ms500Task(void)
    static modes modeLast = MOD_OFF;
    static int blinks = 0;
    static int regenLevelLast = 0;
+   static bool acqAhin = false;
    modes mode = (modes)Param::GetInt(Param::opmode);
    bool cruiseLight = Param::GetBool(Param::cruiselight);
    int regenLevel = Param::GetInt(Param::regenlevel);
@@ -172,9 +173,21 @@ static void Ms500Task(void)
       }
    }
 
+   if (acqAhin)
+   {
+      Param::SetFloat(Param::ahout, (float)isa->GetLogData() / 3600);
+      isa->AcquireLogData(IsaShunt::AS_CHARGE);
+   }
+   else
+   {
+      Param::SetFloat(Param::ahin, (float)isa->GetLogData() / 3600);
+      isa->AcquireLogData(IsaShunt::AS_DISCHARGE);
+   }
+
    regenLevelLast = Param::GetInt(Param::regenlevel);
    modeLast = mode;
    mebBms->Balance(Param::GetBool(Param::balance));
+   acqAhin = !acqAhin;
 }
 
 static void ProcessCruiseControlButtons()
@@ -410,11 +423,11 @@ static void SwitchDcDcConverterAndHeater()
       }
       else
       {
-         if (Param::GetFloat(Param::uaux) < Param::GetFloat(Param::dcdcresume))
+         if (Param::GetFloat(Param::udcdc) < Param::GetFloat(Param::dcdcresume))
          {
             DigIo::dcdc_out.Set();
          }
-         else if (Param::GetFloat(Param::uaux) > 14.1f && Param::GetFloat(Param::idcdc) < Param::GetFloat(Param::dcdcutoff))
+         else if (Param::GetFloat(Param::udcdc) > 14.1f && Param::GetFloat(Param::idcdc) < Param::GetFloat(Param::dcdcutoff))
          {
             DigIo::dcdc_out.Clear();
          }
@@ -494,11 +507,59 @@ static void SwitchEvse()
    }
 }
 
-static void Ms100Task(void)
+static void CalculateSoc()
 {
    static float estimatedSoc = 0;
    static uint32_t lastCurrentTime = 0;
    static uint32_t asOffset = 0;
+   uint32_t rtc = rtc_get_counter_val();
+   float current = isa->GetValue(IsaShunt::CURRENT) / 1000.0f;
+
+   if (ABS(current) > 1)
+      lastCurrentTime = rtc;
+
+   if (rtc < 100) //startup
+   {
+      estimatedSoc = FP_TOFLOAT(BKP_DR1);
+      asOffset = isa->GetValue(IsaShunt::AS);
+      Param::SetFixed(Param::soh, BKP_DR2); //try loading SoH
+   }
+   else if ((rtc - lastCurrentTime) > 12000 || estimatedSoc == 0) //no current flow since 120s or failed to load previous SOC
+   {
+      int32_t as = isa->GetValue(IsaShunt::AS);
+
+      if (ABS(as) > 36000) //more than 10Ah difference
+      {
+         float estimatedAs = mebBms->EstimateSocFromVoltage() - estimatedSoc; //Calculate difference in percent to last estimation
+         estimatedAs = ABS(estimatedAs); //only the absolute value is of interest
+         estimatedAs*= mebBms->GetMaximumAmpHours(); //multiply with supposedly available amp hours
+         estimatedAs/= 3600.0f / 100; //multiply by 3600 (Ah to As) and divide by 100 because percent
+         float soh = ABS(as) / estimatedAs;
+         soh *= 100;
+         Param::SetFloat(Param::soh, soh);
+         BKP_DR2 = FP_FROMFLT(soh);
+      }
+      estimatedSoc = mebBms->EstimateSocFromVoltage();
+      Param::SetFloat(Param::soc, estimatedSoc);
+      asOffset = as;
+      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc));
+      BKP_DR1 = FP_FROMFLT(estimatedSoc);
+   }
+   else
+   {
+      int32_t as = isa->GetValue(IsaShunt::AS) - asOffset;
+      float ah = as / 3600.0f;
+      float socChange = 100 * ah / mebBms->GetMaximumAmpHours();
+      float soc = estimatedSoc + socChange;
+      Param::SetFloat(Param::ahdiff, ah);
+      Param::SetFloat(Param::soc, soc);
+      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(soc));
+      BKP_DR1 = FP_FROMFLT(soc);
+   }
+}
+
+static void Ms100Task()
+{
    uint32_t rtc = rtc_get_counter_val();
 
    DigIo::led_out.Toggle();
@@ -527,46 +588,17 @@ static void Ms100Task(void)
 
    isa->InitializeAndStartIfNeeded();
 
-   if (ABS(current) > 1)
-      lastCurrentTime = rtc;
-
-   if (rtc < 100) //startup
-   {
-      estimatedSoc = FP_TOFLOAT(BKP_DR1);
-      asOffset = isa->GetValue(IsaShunt::AS);
-   }
-   else if ((rtc - lastCurrentTime) > 12000 || estimatedSoc == 0) //no current flow since 120s or failed to load previous SOC
-   {
-      estimatedSoc = mebBms->EstimateSocFromVoltage();
-      Param::SetFloat(Param::soc, estimatedSoc);
-      //isa->ResetCounters();
-      asOffset = isa->GetValue(IsaShunt::AS);
-      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(estimatedSoc));
-      BKP_DR1 = FP_FROMFLT(estimatedSoc);
-   }
-   else
-   {
-      int32_t as = isa->GetValue(IsaShunt::AS) - asOffset;
-      float ah = as / 3600.0f;
-      float socChange = 100 * ah / mebBms->GetMaximumAmpHours();
-      float soc = estimatedSoc + socChange;
-      Param::SetFloat(Param::ahdiff, ah);
-      Param::SetFloat(Param::soc, soc);
-      Param::SetFloat(Param::energy, mebBms->GetRemainingEnergy(soc));
-      BKP_DR1 = FP_FROMFLT(soc);
-   }
-
+   CalculateSoc();
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
    RunChaDeMo();
    SwitchVacuumPump();
    SwitchDcDcConverterAndHeater();
    SwitchEvse();
-
    SendVAG100msMessage();
    SetFuelGauge();
 
-   if (!mebBms->Alive(rtc_get_counter_val()))
+   if (!mebBms->Alive(rtc))
    {
       ErrorMessage::Post(ERR_BMSCOMM);
    }
@@ -576,7 +608,7 @@ static void Ms100Task(void)
    {
       Param::SetInt(Param::errlights, 4); //EPC light
    }
-   else if (invErr > 0)
+   else if (invErr > 0 || ErrorMessage::GetLastError() > 0)
    {
       if (invErr == 2 || invErr == 3) //throttle errors
          Param::SetInt(Param::errlights, 4); //EPC light
@@ -861,7 +893,14 @@ static void DecodeCruiseControl(uint32_t data)
 /** This function is called when the user changes a parameter */
 extern void Param::Change(Param::PARAM_NUM paramNum)
 {
-   paramNum = paramNum;
+   switch (paramNum)
+   {
+   case Param::ahmax:
+      mebBms->SetMaximumAmpHours(Param::GetFloat(Param::ahmax));
+      break;
+   default:
+      break;
+   }
 }
 
 static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
@@ -881,7 +920,7 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
       ignitionTimeout = 50;
       break;
    case 0x377:
-      Param::SetFloat(Param::uaux, (((data[0] & 0xFF) << 8) + ((data[0] & 0xFF00) >> 8)) * 0.01f);
+      Param::SetFloat(Param::udcdc, (((data[0] & 0xFF) << 8) + ((data[0] & 0xFF00) >> 8)) * 0.01f);
       Param::SetFloat(Param::idcdc, (((data[0] & 0xFF0000) >> 8) + ((data[0] & 0xFF000000) >> 24)) * 0.1f);
       tmpdcdc[0] = data[1] & 0xFF;
       tmpdcdc[1] = (data[1] >> 8) & 0xFF;
@@ -934,10 +973,6 @@ extern "C" int main(void)
    nvic_setup();
    parm_load();
 
-   #if TARGET == 107
-   gpio_primary_remap(AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_ON, AFIO_MAPR_USART3_REMAP_FULL_REMAP);
-   #endif
-
    Stm32Can c(CAN1, CanHardware::Baud500);
    FunctionPointerCallback cb(CanCallback, HandleClear);
 
@@ -954,6 +989,7 @@ extern "C" int main(void)
    canMap = &cm;
    mebBms = &mb;
    isa = &i;
+   mebBms->SetMaximumAmpHours(Param::GetFloat(Param::ahmax));
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;

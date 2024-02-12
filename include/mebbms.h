@@ -39,7 +39,8 @@ class MebBms : public CanCallback
       float GetAvgCellVoltage() { return totalVoltage / NumCells; }
       float GetTotalVoltage() { return totalVoltage / 1000.0f; }
       float EstimateSocFromVoltage();
-      float GetMaximumAmpHours();
+      float GetMaximumAmpHours() { return maxAh; }
+      void SetMaximumAmpHours(float a) { maxAh = a; }
       float GetRemainingEnergy(float soc);
       void Balance(bool enable);
       bool Alive(uint32_t time);
@@ -63,6 +64,7 @@ class MebBms : public CanCallback
       float temps[NumCells / CellsPerCmu];
       float lowTemp;
       float highTemp;
+      float maxAh;
       uint32_t lastReceived[NumCells / CellsPerCmu];
       bool balancerRunning;
       uint8_t balCounter;

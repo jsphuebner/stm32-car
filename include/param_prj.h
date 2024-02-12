@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.41.R-meb
+#define VER 1.43.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -24,11 +24,12 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 115
+//Next param id (increase when adding new parameter!): 118
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_BMS,      cellmin,     "mV",      2500,   3600,   3380,   115 ) \
     PARAM_ENTRY(CAT_BMS,      cellmax,     "mV",      4000,   4300,   4200,   116 ) \
+    PARAM_ENTRY(CAT_BMS,      ahmax,       "Ah",      10,     200,    148,    117 ) \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
     PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,   5,      7   ) \
@@ -45,7 +46,6 @@
     PARAM_ENTRY(CAT_POWER,    cdmcheckena, ONOFF,     0,      1,      1,      13  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
-    PARAM_ENTRY(CAT_CONTACT,  udcdc,       "V",       10,     15,     14,     102 ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcresume,  "V",       10,     15,     12.5,   108 ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcutoff,   "A",       0,     150,     15,     109 ) \
     TESTP_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      112 ) \
@@ -76,6 +76,7 @@
     VALUE_ENTRY(udccdm,       "V",     2068 ) \
     VALUE_ENTRY(udcobc,       "V",     2091 ) \
     VALUE_ENTRY(uacobc,       "V",     2092 ) \
+    VALUE_ENTRY(udcdc,        "V",     2021 ) \
     VALUE_ENTRY(bmschglim,    "A",     2049 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
@@ -89,6 +90,8 @@
     VALUE_ENTRY(energy,       "Wh",    2110 ) \
     VALUE_ENTRY(soc,          "%",     2052 ) \
     VALUE_ENTRY(soh,          "%",     2053 ) \
+    VALUE_ENTRY(ahin,         "Ah",    2113 ) \
+    VALUE_ENTRY(ahout,        "Ah",    2114 ) \
     VALUE_ENTRY(speed,        "rpm",   2012 ) \
     VALUE_ENTRY(speedmod,     "rpm",   2013 ) \
     VALUE_ENTRY(pot,          "dig",   2015 ) \
@@ -111,7 +114,6 @@
     VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
     VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
     VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
-    VALUE_ENTRY(uaux,         "V",     2021 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
@@ -142,7 +144,7 @@
     VALUE_ENTRY(rstreason,    RST,      2112 ) \
     VALUE_ENTRY(uptime,       "",      2104 ) \
 
-//Next value Id: 2113
+//Next value Id: 2115
 
 #define VERSTR STRINGIFY(4=VER)
 #define RST          "1=Pin, 2=POR, 4=Sw, 8=IWDG, 16=WWDG, 32=LowPower"

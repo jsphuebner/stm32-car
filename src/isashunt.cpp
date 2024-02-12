@@ -67,6 +67,14 @@ void IsaShunt::ResetCounters()
    }
 }
 
+void IsaShunt::AcquireLogData(IsaShunt::logchannels l)
+{
+   uint32_t configData[2] = { 0x0043, 0 };
+   configData[0] |= l << 8;
+
+   can->Send(CAN_ID_CONFIG, configData);
+}
+
 void IsaShunt::Start()
 {
    uint32_t configData[2] = { 0x0134, 0 };
@@ -125,6 +133,7 @@ bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
    switch (id)
    {
    case CAN_ID_REPLY:
+      ExtractLogData(data);
       Configure(data);
       break;
    case CAN_ID_CURRENT:
@@ -161,6 +170,16 @@ void IsaShunt::InitializeAndStartIfNeeded()
    uint32_t dummy[2] = { 0, 0 };
    if (!initialized) Configure(dummy);
    if (initialized && !started) Start();
+}
+
+void IsaShunt::ExtractLogData(uint32_t data[2])
+{
+   if ((data[0] & 0xFF) == 0x83) //logdata reply
+   {
+      uint8_t* u8data = (uint8_t*)data;
+      //we ignore the upper 2 of 6 bytes to stay in int32_t
+      logdata = u8data[7] + (u8data[6] << 8) + (u8data[5] << 16) + (u8data[4] << 24);
+   }
 }
 
 void IsaShunt::Configure(uint32_t data[2])

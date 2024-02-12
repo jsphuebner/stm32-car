@@ -25,6 +25,7 @@ class IsaShunt : public CanCallback
 {
    public:
       enum channels { CURRENT = 1, U1 = 2, U2 = 4, U3 = 8, TEMP = 16, POWER = 32, AS = 64, WH = 128 };
+      enum logchannels { AS_TOTAL = 0x1, AS_CHARGE = 0x2, AS_DISCHARGE = 0x3, RUNTIME = 0x10 };
 
       /** Default constructor */
       IsaShunt(CanHardware* hw, uint8_t enabledChannels = 0x4F);
@@ -33,12 +34,15 @@ class IsaShunt : public CanCallback
       void ResetCounters();
       void Stop();
       void Start();
+      void AcquireLogData(logchannels l);
+      int32_t GetLogData() { return logdata; }
       void InitializeAndStartIfNeeded();
       bool IsReady() { return started; }
       int32_t GetValue(channels chan);
 
    private:
       void Configure(uint32_t data[2]);
+      void ExtractLogData(uint32_t data[2]);
 
       CanHardware *can;
       int32_t current;
@@ -47,6 +51,7 @@ class IsaShunt : public CanCallback
       int32_t temp;
       int32_t currentIntegral;
       int32_t powerIntegral;
+      int32_t logdata;
       bool initialized;
       bool started;
       uint8_t enableMask;

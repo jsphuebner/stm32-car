@@ -40,7 +40,7 @@ static const uint8_t energyCurveTableItems = sizeof(socToSoe) / sizeof(socToSoe[
 static const float energyCurveGranularity = 100.0f / (energyCurveTableItems - 1);
 
 MebBms::MebBms(CanHardware* c)
-: canHardware(c), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0),
+: canHardware(c), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0), maxAh(148),
   balancerRunning(false), balCounter(0)
 {
    for (int i = 0; i < NumCells; i++)
@@ -243,12 +243,6 @@ void MebBms::Balance(bool enable)
    }
 
    balancerRunning = balancing;
-}
-
-float MebBms::GetMaximumAmpHours()
-{
-   //TODO actually estimate this
-   return 148;
 }
 
 bool MebBms::Alive(uint32_t time)
