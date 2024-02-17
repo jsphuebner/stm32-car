@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.43.R-meb
+#define VER 1.44.R-meb
 
 
 /* Entries must be ordered as follows:

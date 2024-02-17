@@ -511,7 +511,7 @@ static void CalculateSoc()
 {
    static float estimatedSoc = 0;
    static uint32_t lastCurrentTime = 0;
-   static uint32_t asOffset = 0;
+   static int32_t asOffset = 0;
    uint32_t rtc = rtc_get_counter_val();
    float current = isa->GetValue(IsaShunt::CURRENT) / 1000.0f;
 
@@ -527,14 +527,15 @@ static void CalculateSoc()
    else if ((rtc - lastCurrentTime) > 12000 || estimatedSoc == 0) //no current flow since 120s or failed to load previous SOC
    {
       int32_t as = isa->GetValue(IsaShunt::AS);
+      int32_t asChange = ABS(as - asOffset);
 
-      if (ABS(as) > 36000) //more than 10Ah difference
+      if (asChange > 36000) //more than 10Ah difference
       {
          float estimatedAs = mebBms->EstimateSocFromVoltage() - estimatedSoc; //Calculate difference in percent to last estimation
          estimatedAs = ABS(estimatedAs); //only the absolute value is of interest
          estimatedAs*= mebBms->GetMaximumAmpHours(); //multiply with supposedly available amp hours
-         estimatedAs/= 3600.0f / 100; //multiply by 3600 (Ah to As) and divide by 100 because percent
-         float soh = ABS(as) / estimatedAs;
+         estimatedAs*= 3600.0f / 100; //multiply by 3600 (Ah to As) and divide by 100 because percent
+         float soh = asChange / estimatedAs;
          soh *= 100;
          Param::SetFloat(Param::soh, soh);
          BKP_DR2 = FP_FROMFLT(soh);
@@ -629,6 +630,8 @@ static void Ms100Task()
 
 static void GetDigInputs()
 {
+   static int chargeInCount = 0;
+   static bool chargeIn = false;
    int canio = 0;
 
    /* charge_in only reads high when the VCU isn't started up in charge mode with the car off
@@ -636,7 +639,19 @@ static void GetDigInputs()
     * but when it is low it doesn't mean that nothing is plugged in
     * It does go high when turning the car on into a charge session, so can be used as
     * drive off protection */
-   Param::SetInt(Param::din_charge, DigIo::charge_in.Get());
+
+   /* I think I forgot fitting the low pass filter cap. So we filter a bit here */
+   if (DigIo::charge_in.Get() && chargeInCount < 10)
+      chargeInCount++;
+   else if (!DigIo::charge_in.Get() && chargeInCount > 0)
+      chargeInCount--;
+
+   if (chargeInCount == 10)
+      chargeIn = true;
+   else if (chargeInCount == 0)
+      chargeIn = false;
+
+   Param::SetInt(Param::din_charge, chargeIn);
 
    if (Param::GetInt(Param::cruisestt) & CRUISE_ON)
       canio |= CAN_IO_CRUISE;
@@ -948,14 +963,6 @@ static void HandleClear()
    can->RegisterUserMessage(0x38A);
 }
 
-static void ConfigureVariantIO()
-{
-   ANA_IN_CONFIGURE(ANA_IN_LIST);
-   DIG_IO_CONFIGURE(DIG_IO_LIST);
-
-   AnaIn::Start();
-}
-
 extern "C" void tim2_isr(void)
 {
    scheduler->Run();
@@ -968,7 +975,9 @@ extern "C" int main(void)
    clock_setup();
    rtc_setup();
    write_bootloader_pininit();
-   ConfigureVariantIO();
+   ANA_IN_CONFIGURE(ANA_IN_LIST);
+   DIG_IO_CONFIGURE(DIG_IO_LIST);
+   AnaIn::Start();
    tim_setup();
    nvic_setup();
    parm_load();

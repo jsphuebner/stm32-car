@@ -210,7 +210,7 @@ float MebBms::GetRemainingEnergy(float soc)
 void MebBms::Balance(bool enable)
 {
    const uint16_t balHyst = 4;
-   const uint16_t balMin = 3800;
+   const uint16_t balMin = 3730;
    uint8_t balCmds[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFE, 0xFE, 0xFE, 0xFE };
    bool balance = enable && balCounter < 11; //toggle balancing for accurate cell voltage measurement
    bool balancing = false;
@@ -276,32 +276,32 @@ void MebBms::Accumulate()
 float MebBms::LowTempDerating()
 {
    const float drt1Temp = 25.0f;
-	const float drt2Temp = 0;
-	const float drt3Temp = -20.0f;
-	const float factorAtDrt2 = 0.3f;
-	float factor;
+   const float drt2Temp = 0;
+   const float drt3Temp = -20.0f;
+   const float factorAtDrt2 = 0.3f;
+   float factor;
 
-	//We allow the ideal charge curve above 25°C
-	if (lowTemp > drt1Temp)
-	   factor = 1;
-	else if (lowTemp > drt2Temp)
-	   factor = factorAtDrt2 + (1 - factorAtDrt2) * (lowTemp - drt2Temp) / (drt1Temp - drt2Temp);
-	else if (lowTemp > drt3Temp)
-	   factor = factorAtDrt2 * (lowTemp - drt3Temp) / (drt2Temp - drt3Temp);
-	else
-	   factor = 0; //inhibit charging below -20°C
+   //We allow the ideal charge curve above 25°C
+   if (lowTemp > drt1Temp)
+      factor = 1;
+   else if (lowTemp > drt2Temp)
+      factor = factorAtDrt2 + (1 - factorAtDrt2) * (lowTemp - drt2Temp) / (drt1Temp - drt2Temp);
+   else if (lowTemp > drt3Temp)
+      factor = factorAtDrt2 * (lowTemp - drt3Temp) / (drt2Temp - drt3Temp);
+   else
+      factor = 0; //inhibit charging below -20°C
 
-	return factor;
+   return factor;
 }
 
 float MebBms::HighTempDerating()
 {
    const float maxTemp = 50.0f;
-	float factor = (maxTemp - highTemp) * 0.4f;
-	factor = MIN(1, factor);
-	factor = MAX(0, factor);
+   float factor = (maxTemp - highTemp) * 0.4f;
+   factor = MIN(1, factor);
+   factor = MAX(0, factor);
 
-	return factor;
+   return factor;
 }
 
 void MebBms::SetCellVoltage(int idx, int vtg)
