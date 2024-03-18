@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.44.R-meb
+#define VER 1.46.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -56,7 +56,6 @@
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugegain,   "dig/%",   0,      4096,   5,      2   ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugebalance,"%",       0,      100,   50,      8   ) \
-    PARAM_ENTRY(CAT_GAUGE,    intempofs,   "dig",     0,      4095,  1700,    104 ) \
     TESTP_ENTRY(CAT_GAUGE,    soctest,     "%",       0,      100,    0,      114 ) \
     VALUE_ENTRY(version,      VERSTR,  2039 ) \
     VALUE_ENTRY(opmode,       OPMODES, 2086 ) \
@@ -65,7 +64,6 @@
     VALUE_ENTRY(cdmstatus,    CDMSTAT, 2070 ) \
     VALUE_ENTRY(cdmcureq,     "A",     2076 ) \
     VALUE_ENTRY(lasterr,      errorListString,  2038 ) \
-    VALUE_ENTRY(lbcdtc,       "",      2098 ) \
     VALUE_ENTRY(chgtime,      "min",   2079 ) \
     VALUE_ENTRY(batfull,      ONOFF,   2069 ) \
     VALUE_ENTRY(batmin,       "mV",    2044 ) \
@@ -113,7 +111,6 @@
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
     VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
     VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
-    VALUE_ENTRY(tmpmod,       "dig",   2040 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \
