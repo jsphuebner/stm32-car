@@ -351,7 +351,6 @@ static void SendVAG100msMessage()
    seqCtr = (seqCtr + 1) & 0x3;
    ctr = (ctr + 1) & 0xF;
 
-   Param::SetFloat(Param::tmpmod, 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3));
    canData[1] = 48 + ((Param::GetFloat(Param::tmpm) * 4) / 3);
    canData[0] = canData[2] = canData[3] = canData[4] = canData[5] = canData[6] = canData[7] = 0;
    can->Send(0x288, (uint32_t*)canData);
@@ -359,12 +358,16 @@ static void SendVAG100msMessage()
 
 static void SetFuelGauge()
 {
+   uint32_t rtc = rtc_get_counter_val();
    int dcoffset = Param::GetInt(Param::gaugeoffset);
    int tmpaux = Param::GetInt(Param::tmpaux);
    s32fp dcgain = Param::Get(Param::gaugegain);
    int soctest = Param::GetInt(Param::soctest);
-   int soc = Param::GetInt(Param::energy) / 600; //percent of 60l petrol or in our case 60 kWh of energy
+   int soc = Param::GetInt(Param::energy) / 550; //percent of 55l petrol or in our case 55 kWh of energy
    soc = soctest != 0 ? soctest : soc;
+
+   if (rtc < 300) soc = 50; //before SoC is valid just display 50% to avoid a "refuel!" message with beep
+
    soc -= Param::GetInt(Param::gaugebalance);
    //Temperature compensation 1 digit per degree
    dcoffset -= tmpaux;
@@ -518,13 +521,16 @@ static void CalculateSoc()
    if (ABS(current) > 1)
       lastCurrentTime = rtc;
 
+   if (rtc > 250)
+      mebBms->Accumulate();
+
    if (rtc < 100) //startup
    {
       estimatedSoc = FP_TOFLOAT(BKP_DR1);
       asOffset = isa->GetValue(IsaShunt::AS);
       Param::SetFixed(Param::soh, BKP_DR2); //try loading SoH
    }
-   else if ((rtc - lastCurrentTime) > 12000 || estimatedSoc == 0) //no current flow since 120s or failed to load previous SOC
+   else if ((rtc - lastCurrentTime) > 12000 || (estimatedSoc == 0 && rtc > 250)) //no current flow since 120s or failed to load previous SOC
    {
       int32_t as = isa->GetValue(IsaShunt::AS);
       int32_t asChange = ABS(as - asOffset);
@@ -570,7 +576,6 @@ static void Ms100Task()
    //float cpVtg = (isa->GetValue(IsaShunt::U1) - isa->GetValue(IsaShunt::U2)) / 1000.0f;
    Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
-   Param::SetInt(Param::tmpecu, AnaIn::tint.Get() - Param::GetInt(Param::intempofs));
 
    Param::SetFloat(Param::tmpbat1, mebBms->GetModuleTemperature(0));
    Param::SetFloat(Param::tmpbat2, mebBms->GetModuleTemperature(1));

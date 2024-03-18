@@ -23,8 +23,8 @@
 #define FIRST_VTG_ID    0x1C0
 
 const uint16_t vtgToSoc[] =
-{/*2.80V  2.85  2.90  2.95  3.00  3.05 3.10  3.15  3.20  3.25  3.30  3.35  3.40  3.45  3.50  3.55  3.60  3.65  3.70  3.75  3.80  3.85  3.90  3.95  4.00  4.05  4.10  4.15  4.20 */
-   0,     12,   31,   55,   80,   116,	153,	202,	239,	325,	496,	701,	1231,	1794,	2307,	3368,	4388,	5368,	5949,	6326,	6742,	7232,	7708,	8104,	8575,	8996,	9446,	9753,	10000
+{/*2.85V  2.90  2.95  3.00  3.05 3.10  3.15  3.20  3.25  3.30  3.35  3.40  3.45  3.50  3.55  3.60  3.65  3.70  3.75  3.80  3.85  3.90  3.95  4.00  4.05  4.10  4.15  4.20  */
+   0,     12,   31,   55,   80,   116,	153,	202,	239,	325,	496,	701,	1231,	1794,	2307,	3368,	4388,	5368,	5949,	6326,	6742,	7232,	7708,	8104,	8575,	8996,	9446,	10000
 };
 
 const uint16_t socToSoe[] =
@@ -32,7 +32,7 @@ const uint16_t socToSoe[] =
    0,	415,	870,	1334,	1803,	2278,	2758,	3241,	3727,	4216,	4709,	5206,	5707,	6217,	6734,	7259,	7791,	8331,	8879,	9434,	10000
 };
 
-static const uint16_t tableMinVtg = 2800; //mV
+static const uint16_t tableMinVtg = 2850; //mV - shifted up 50 mV because otherwise it does not match
 static const uint16_t tableMaxVtg = 4200; //mV
 static const uint8_t socCurveTableItems = sizeof(vtgToSoc) / sizeof(vtgToSoc[0]);
 static const uint8_t socCurveGranularity = 50; //mV between entries
@@ -87,9 +87,6 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          SetCellVoltage(group * 4 + 1, ((data[0] >> 24) | ((data[1] & 0xF) << 8)) + 1000);
          SetCellVoltage(group * 4 + 2, ((data[1] >> 4) & 0xFFF) + 1000);
          SetCellVoltage(group * 4 + 3, ((data[1] >> 16) & 0xFFF) + 1000);
-
-         if (canId == FIRST_VTG_ID)
-            Accumulate();
       }
       return true;
    }
@@ -139,7 +136,7 @@ float MebBms::GetMaximumChargeCurrent(float cellmax)
     * High temp derating is done by generally capping charge current
     */
 
-   float cv1Result = (cv1Voltage - maxCellVoltage) * 2; //P-controller gain factor 2 A/mV
+   float cv1Result = (cv1Voltage - maxCellVoltage) * 3; //P-controller gain factor 3 A/mV
    cv1Result = MIN(cv1Result, cc1Current);
 
    float cv2Result = (cv2Voltage - maxCellVoltage) * 2;
@@ -263,9 +260,13 @@ void MebBms::Accumulate()
    for (int i = 0; i < NumCells; i++)
    {
       float voltage = cellVoltages[i];
-      sum += voltage;
-      min = MIN(min, voltage);
-      max = MAX(max, voltage);
+
+      if (voltage > 1000) //only process valid data
+      {
+         sum += voltage;
+         min = MIN(min, voltage);
+         max = MAX(max, voltage);
+      }
    }
 
    minCellVoltage = min;

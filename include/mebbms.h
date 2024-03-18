@@ -44,12 +44,12 @@ class MebBms : public CanCallback
       float GetRemainingEnergy(float soc);
       void Balance(bool enable);
       bool Alive(uint32_t time);
+      void Accumulate();
       static const int NumCells = 96;
 
    protected:
 
    private:
-      void Accumulate();
       void SetCellVoltage(int idx, int vtg);
       float LowTempDerating();
       float HighTempDerating();
