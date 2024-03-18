@@ -108,7 +108,7 @@ void write_bootloader_pininit()
 void nvic_setup(void)
 {
    nvic_enable_irq(NVIC_TIM2_IRQ); //Scheduler
-   nvic_set_priority(NVIC_TIM2_IRQ, 0xe << 4); //second lowest priority
+   nvic_set_priority(NVIC_TIM2_IRQ, 0); //highest priority
 }
 
 void rtc_setup()
@@ -121,7 +121,6 @@ void rtc_setup()
    #else
    rtc_auto_awake(RCC_HSE, 624); //10ms tick
    #endif // TARGET
-   rtc_auto_awake(RCC_HSE, 624); //10ms tick
    rtc_set_counter_val(0);
 }
 
