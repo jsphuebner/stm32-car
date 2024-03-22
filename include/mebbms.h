@@ -42,7 +42,7 @@ class MebBms : public CanCallback
       float GetMaximumAmpHours() { return maxAh; }
       void SetMaximumAmpHours(float a) { maxAh = a; }
       float GetRemainingEnergy(float soc);
-      void Balance(bool enable);
+      void Balance(bool enable, int& start);
       bool Alive(uint32_t time);
       void Accumulate();
       static const int NumCells = 96;
@@ -66,7 +66,7 @@ class MebBms : public CanCallback
       float highTemp;
       float maxAh;
       uint32_t lastReceived[NumCells / CellsPerCmu];
-      bool balancerRunning;
+      bool balancerRunning[NumCells / CellsPerCmu];
       uint8_t balCounter;
 };
 

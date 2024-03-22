@@ -186,7 +186,6 @@ static void Ms500Task(void)
 
    regenLevelLast = Param::GetInt(Param::regenlevel);
    modeLast = mode;
-   mebBms->Balance(Param::GetBool(Param::balance));
    acqAhin = !acqAhin;
 }
 
@@ -366,7 +365,7 @@ static void SetFuelGauge()
    int soc = Param::GetInt(Param::energy) / 550; //percent of 55l petrol or in our case 55 kWh of energy
    soc = soctest != 0 ? soctest : soc;
 
-   if (rtc < 300) soc = 50; //before SoC is valid just display 50% to avoid a "refuel!" message with beep
+   if (rtc < 300 && soc == 0) soc = 50; //before SoC is valid just display 50% to avoid a "refuel!" message with beep
 
    soc -= Param::GetInt(Param::gaugebalance);
    //Temperature compensation 1 digit per degree
@@ -567,6 +566,7 @@ static void CalculateSoc()
 
 static void Ms100Task()
 {
+   static int balanceCell = 0;
    uint32_t rtc = rtc_get_counter_val();
 
    DigIo::led_out.Toggle();
@@ -576,6 +576,7 @@ static void Ms100Task()
    //float cpVtg = (isa->GetValue(IsaShunt::U1) - isa->GetValue(IsaShunt::U2)) / 1000.0f;
    Param::SetFloat(Param::cpuload, cpuLoad / 10);
    Param::SetInt(Param::lasterr, ErrorMessage::GetLastError());
+   mebBms->Balance(Param::GetBool(Param::balance), balanceCell);
 
    Param::SetFloat(Param::tmpbat1, mebBms->GetModuleTemperature(0));
    Param::SetFloat(Param::tmpbat2, mebBms->GetModuleTemperature(1));
@@ -1024,11 +1025,11 @@ extern "C" int main(void)
 
    while(1)
    {
-      char c = 0;
+      char dummy = 0;
       t.Run();
       if (sdo.GetPrintRequest() == PRINT_JSON)
       {
-         TerminalCommands::PrintParamsJson(&sdo, &c);
+         TerminalCommands::PrintParamsJson(&sdo, &dummy);
       }
    }
 

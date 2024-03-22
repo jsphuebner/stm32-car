@@ -28,9 +28,8 @@ LD		= $(PREFIX)-gcc
 OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 MKDIR_P     = mkdir -p
-TERMINAL_DEBUG ?= 0
 CFLAGS		= -Os -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3/include \
-             -fno-common -fno-builtin -pedantic -DSTM32F1 -DT_DEBUG=$(TERMINAL_DEBUG)  \
+             -fno-common -fno-builtin -pedantic -DSTM32F1 -DTARGET=$(TARGET) \
 				 -mcpu=cortex-m3 -mthumb -std=gnu99 -ffunction-sections -fdata-sections
 CPPFLAGS    = -Os -Wall -Wextra -Ilibopeninv/include -Iinclude/ -Ilibopencm3/include \
             -fno-common -std=c++20 -pedantic -DSTM32F1 -DTARGET=$(TARGET) -DMAX_ITEMS=70  \

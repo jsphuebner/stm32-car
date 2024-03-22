@@ -77,16 +77,21 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (canId >= FIRST_VTG_ID && canId <= 0x1DF)
    {
-      if ((canId & 3) != 3 && !balancerRunning) //every 4th message contains data we don't need
+      if ((canId & 3) != 3) //every 4th message contains data we don't need
       {
          //every message contains 4 voltages. Here we calculate which group we are in.
          //Every 4th message is not relevant to us and must be excluded from this calculation
          //We do so by multiplying with 3/4 and rounding up
          int group = ((canId - FIRST_VTG_ID + 1) * 3) / 4;
-         SetCellVoltage(group * 4, ((data[0] >> 12) & 0xFFF) + 1000);
-         SetCellVoltage(group * 4 + 1, ((data[0] >> 24) | ((data[1] & 0xF) << 8)) + 1000);
-         SetCellVoltage(group * 4 + 2, ((data[1] >> 4) & 0xFFF) + 1000);
-         SetCellVoltage(group * 4 + 3, ((data[1] >> 16) & 0xFFF) + 1000);
+         int cmu = group / 3;
+
+         if (!balancerRunning[cmu])
+         {
+            SetCellVoltage(group * 4, ((data[0] >> 12) & 0xFFF) + 1000);
+            SetCellVoltage(group * 4 + 1, ((data[0] >> 24) | ((data[1] & 0xF) << 8)) + 1000);
+            SetCellVoltage(group * 4 + 2, ((data[1] >> 4) & 0xFFF) + 1000);
+            SetCellVoltage(group * 4 + 3, ((data[1] >> 16) & 0xFFF) + 1000);
+         }
       }
       return true;
    }
@@ -204,18 +209,21 @@ float MebBms::GetRemainingEnergy(float soc)
    return energyAtSoc * nominalVoltage * NumCells * GetMaximumAmpHours() / 10000;
 }
 
-void MebBms::Balance(bool enable)
+void MebBms::Balance(bool enable, int& start)
 {
    const uint16_t balHyst = 4;
    const uint16_t balMin = 3730;
    uint8_t balCmds[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFE, 0xFE, 0xFE, 0xFE };
-   bool balance = enable && balCounter < 11; //toggle balancing for accurate cell voltage measurement
+   bool balance = enable && balCounter < 3; //toggle balancing for accurate cell voltage measurement
    bool balancing = false;
 
-   balCounter++;
-   balCounter &= 0xF;
+   if (start == 0)
+   {
+      balCounter++;
+      balCounter &= 0x3;
+   }
 
-   for (int i = 0; i < NumCells; i++)
+   for (int i = start; i < NumCells; i++)
    {
       const int group = i / CellsPerCmu;
       const int cell = i % CellsPerCmu;
@@ -223,6 +231,7 @@ void MebBms::Balance(bool enable)
 
       balCmds[cell] = balFlag && balance ? 0x8 : 0x0;
       balancing |= balFlag && balance;
+      balancerRunning[group] = balancing;
 
       if (cell == 0) balFlags[group] = 0;
       balFlags[group] |= balFlag << cell;
@@ -236,10 +245,13 @@ void MebBms::Balance(bool enable)
       {
          uint32_t canId = (group < 5 ? 0x1A555413 : 0x1A5554A2) + group * 2;
          canHardware->Send(canId, (uint32_t*)&balCmds[8]);
+         start = i + 1;
+         start = start == NumCells ? 0 : start;
+         break;
       }
    }
 
-   balancerRunning = balancing;
+   //balancerRunning = balancing;
 }
 
 bool MebBms::Alive(uint32_t time)
