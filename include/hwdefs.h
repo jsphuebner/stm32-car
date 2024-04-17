@@ -6,7 +6,6 @@
 
 //Maximum value for over current limit timer
 #define GAUGEMAX 4096
-#define USART_BAUDRATE 115200
 //Maximum PWM frequency is 36MHz/2^MIN_PWM_DIGITS
 #define MIN_PWM_DIGITS 11
 #define PERIPH_CLK      ((uint32_t)36000000)

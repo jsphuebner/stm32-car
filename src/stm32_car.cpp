@@ -55,7 +55,7 @@ static Stm32Scheduler* scheduler;
 static CanHardware* can;
 static CanMap* canMap;
 MebBms* mebBms;
-IsaShunt* isa;
+static IsaShunt* isa;
 static int ignitionTimeout = 0;
 static int chargerTimeout = 0;
 
