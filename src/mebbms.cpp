@@ -40,7 +40,7 @@ static const uint8_t energyCurveTableItems = sizeof(socToSoe) / sizeof(socToSoe[
 static const float energyCurveGranularity = 100.0f / (energyCurveTableItems - 1);
 
 MebBms::MebBms(CanHardware* c)
-: canHardware(c), maxCellVoltage(0), minCellVoltage(0), totalVoltage(0), maxAh(148),
+: canHardware(c), maxCellVoltage(0), minCellVoltage(0), filteredMaxCellVoltage(0), totalVoltage(0), maxAh(148),
   balancerRunning(false), balCounter(0)
 {
    for (int i = 0; i < NumCells; i++)
@@ -121,7 +121,7 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 float MebBms::GetMaximumChargeCurrent(float cellmax)
 {
    const float lowTempDerate = LowTempDerating();
-   const float highTempDerate = HighTempDerating();
+   const float highTempDerate = HighTempDerating(50);
    const float cc1Current = 275.0f * lowTempDerate;
    const uint16_t cv1Voltage = 3960;
    const float cc2Current = 170.0f * lowTempDerate;
@@ -141,13 +141,13 @@ float MebBms::GetMaximumChargeCurrent(float cellmax)
     * High temp derating is done by generally capping charge current
     */
 
-   float cv1Result = (cv1Voltage - maxCellVoltage) * 3; //P-controller gain factor 3 A/mV
+   float cv1Result = (cv1Voltage - filteredMaxCellVoltage) * 9; //P-controller gain factor 9 A/mV
    cv1Result = MIN(cv1Result, cc1Current);
 
-   float cv2Result = (cv2Voltage - maxCellVoltage) * 2;
+   float cv2Result = (cv2Voltage - filteredMaxCellVoltage) * 9;
    cv2Result = MIN(cv2Result, cc2Current);
 
-   float cv3Result = (cv3Voltage - maxCellVoltage) * 2;
+   float cv3Result = (cv3Voltage - filteredMaxCellVoltage) * 9;
    cv3Result = MIN(cv3Result, cc3Current);
    cv3Result = MAX(cv3Result, 0);
 
@@ -159,7 +159,8 @@ float MebBms::GetMaximumChargeCurrent(float cellmax)
 
 float MebBms::GetMaximumDischargeCurrent(float cellVoltageCutoff)
 {
-   const float highTempDerate = HighTempDerating();
+   //give discharge current 2°C extra so a hot battery from charging doesn't immobilize the vehicle
+   const float highTempDerate = HighTempDerating(52);
    const float maxDischargeCurrent = 500;
    float result = (minCellVoltage - cellVoltageCutoff) * 5;
    result = MIN(maxDischargeCurrent, result);
@@ -250,15 +251,13 @@ void MebBms::Balance(bool enable, int& start)
          break;
       }
    }
-
-   //balancerRunning = balancing;
 }
 
 bool MebBms::Alive(uint32_t time)
 {
    uint32_t lastRecv = time;
 
-   for (int i = 0; i < (NumCells / 12); i++)
+   for (int i = 0; i < (NumCells / CellsPerCmu); i++)
    {
       lastRecv = MIN(lastReceived[i], lastRecv);
    }
@@ -284,6 +283,9 @@ void MebBms::Accumulate()
    minCellVoltage = min;
    maxCellVoltage = max;
    totalVoltage = sum;
+
+   if (filteredMaxCellVoltage == 0) filteredMaxCellVoltage = maxCellVoltage;
+   else filteredMaxCellVoltage = IIRFILTERF(filteredMaxCellVoltage, maxCellVoltage, 4);
 }
 
 float MebBms::LowTempDerating()
@@ -297,9 +299,9 @@ float MebBms::LowTempDerating()
    //We allow the ideal charge curve above 25°C
    if (lowTemp > drt1Temp)
       factor = 1;
-   else if (lowTemp > drt2Temp)
+   else if (lowTemp > drt2Temp) //above 0°C allow at least factorAtDrt2 fraction of the charge current and ramp up linearly with temperature
       factor = factorAtDrt2 + (1 - factorAtDrt2) * (lowTemp - drt2Temp) / (drt1Temp - drt2Temp);
-   else if (lowTemp > drt3Temp)
+   else if (lowTemp > drt3Temp) //below 0°C ramp down linearly
       factor = factorAtDrt2 * (lowTemp - drt3Temp) / (drt2Temp - drt3Temp);
    else
       factor = 0; //inhibit charging below -20°C
@@ -307,10 +309,9 @@ float MebBms::LowTempDerating()
    return factor;
 }
 
-float MebBms::HighTempDerating()
+float MebBms::HighTempDerating(float maxTemp)
 {
-   const float maxTemp = 50.0f;
-   float factor = (maxTemp - highTemp) * 0.4f;
+   float factor = (maxTemp - highTemp) * 0.15f;
    factor = MIN(1, factor);
    factor = MAX(0, factor);
 

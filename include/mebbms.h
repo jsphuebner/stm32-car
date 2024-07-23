@@ -52,7 +52,7 @@ class MebBms : public CanCallback
    private:
       void SetCellVoltage(int idx, int vtg);
       float LowTempDerating();
-      float HighTempDerating();
+      float HighTempDerating(float maxTemp);
 
       CanHardware* canHardware;
       static const int CellsPerCmu = 12;
@@ -60,6 +60,7 @@ class MebBms : public CanCallback
       uint16_t balFlags[NumCells / CellsPerCmu];
       float maxCellVoltage;
       float minCellVoltage;
+      float filteredMaxCellVoltage;
       float totalVoltage;
       float temps[NumCells / CellsPerCmu];
       float lowTemp;
