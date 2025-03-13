@@ -233,10 +233,9 @@ static void ProcessCruiseControlButtons()
 
    if (cruisestt & CRUISE_ON && Param::GetInt(Param::opmode) == MOD_DRIVE)
    {
+      int currentSpeed = Param::GetInt(Param::speed);
       if (cruisespeed <= 0)
       {
-         int currentSpeed = Param::GetInt(Param::speed);
-
          if (cruisestt & CRUISE_SETN && currentSpeed > 500) //Start cruise control at current speed
          {
             cruiseTarget = currentSpeed;
@@ -259,7 +258,15 @@ static void ProcessCruiseControlButtons()
          }
          else if (cruisestt & CRUISE_SETN)
          {
-            cruiseTarget -= Param::GetInt(Param::cruisestep);
+            if ((currentSpeed - cruisespeed) > 200) //When we have accelerated with throttle pedal reprogram cruise speed
+            {
+               cruiseTarget = currentSpeed;
+               cruisespeed = cruiseTarget;
+            }
+            else
+            {
+               cruiseTarget -= Param::GetInt(Param::cruisestep);
+            }
          }
       }
    }
