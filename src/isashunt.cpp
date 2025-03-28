@@ -126,10 +126,8 @@ int32_t IsaShunt::GetValue(channels chan)
    return result;
 }
 
-bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
+void IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
 {
-   bool isIsa = true;
-
    switch (id)
    {
    case CAN_ID_REPLY:
@@ -158,11 +156,8 @@ bool IsaShunt::HandleRx(uint32_t id, uint32_t data[], uint8_t)
       currentIntegral = (data[0] >> 16) + (data[1] << 16);
       break;
    default:
-      isIsa = false;
       break;
    }
-
-   return isIsa;
 }
 
 void IsaShunt::InitializeAndStartIfNeeded()

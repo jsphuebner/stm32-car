@@ -53,6 +53,17 @@ MebBms::MebBms(CanHardware* c)
       balFlags[i] = 0;
    }
 
+   for (int i = 0; i < 3; i++)
+   {
+      cvControllers[i].SetGains(3, 3);
+      cvControllers[i].SetCallingFrequency(10);
+      cvControllers[i].ResetIntegrator();
+   }
+
+   cvControllers[0].SetRef(FP_FROMINT(3950));
+   cvControllers[1].SetRef(FP_FROMINT(4050));
+   cvControllers[2].SetRef(FP_FROMINT(4200));
+
    canHardware->AddCallback(this);
    HandleClear();
 }
@@ -73,7 +84,7 @@ void MebBms::HandleClear()
    canHardware->RegisterUserMessage(0x1A5555FB);
 }
 
-bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
+void MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
 {
    if (canId >= FIRST_VTG_ID && canId <= 0x1DF)
    {
@@ -93,7 +104,6 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
             SetCellVoltage(group * 4 + 3, ((data[1] >> 16) & 0xFFF) + 1000);
          }
       }
-      return true;
    }
    else if (canId >= 0x1A5555F4 && canId <= 0x1A5555FB)
    {
@@ -113,22 +123,17 @@ bool MebBms::HandleRx(uint32_t canId, uint32_t data[2], uint8_t)
          lowTemp = min;
          highTemp = max;
       }
-      return true;
    }
-   return false;
 }
 
 float MebBms::GetMaximumChargeCurrent(float cellmax)
 {
    const float lowTempDerate = LowTempDerating();
-   const float highTempDerate = HighTempDerating(50);
+   const float highTempDerate = HighTempDerating(51);
    const float cc1Current = 275.0f * lowTempDerate;
-   const uint16_t cv1Voltage = 3960;
    const float cc2Current = 170.0f * lowTempDerate;
-   const uint16_t cv2Voltage = 4050;
    const float cc3Current = 114.0f * lowTempDerate;
-   const uint16_t cv3Voltage = cellmax;
-   float result;
+   int32_t result;
 
    /* Here we try to mimic VWs charge curve for a warm battery.
     *
@@ -140,18 +145,17 @@ float MebBms::GetMaximumChargeCurrent(float cellmax)
     * Low temperature derating is done by scaling down the CC values
     * High temp derating is done by generally capping charge current
     */
+   cvControllers[0].SetMinMaxY(0, cc1Current);
+   cvControllers[1].SetMinMaxY(0, cc2Current);
+   cvControllers[2].SetMinMaxY(0, cc3Current);
+   cvControllers[2].SetRef(FP_FROMFLT(cellmax));
 
-   float cv1Result = (cv1Voltage - filteredMaxCellVoltage) * 9; //P-controller gain factor 9 A/mV
-   cv1Result = MIN(cv1Result, cc1Current);
-
-   float cv2Result = (cv2Voltage - filteredMaxCellVoltage) * 9;
-   cv2Result = MIN(cv2Result, cc2Current);
-
-   float cv3Result = (cv3Voltage - filteredMaxCellVoltage) * 9;
-   cv3Result = MIN(cv3Result, cc3Current);
-   cv3Result = MAX(cv3Result, 0);
+   int32_t cv1Result = cvControllers[0].Run(FP_FROMFLT(filteredMaxCellVoltage));
+   int32_t cv2Result = cvControllers[1].Run(FP_FROMFLT(filteredMaxCellVoltage));
+   int32_t cv3Result = cvControllers[2].Run(FP_FROMFLT(filteredMaxCellVoltage));
 
    result = MAX(cv1Result, MAX(cv2Result, cv3Result));
+
    result *= highTempDerate;
 
    return result;
@@ -160,7 +164,7 @@ float MebBms::GetMaximumChargeCurrent(float cellmax)
 float MebBms::GetMaximumDischargeCurrent(float cellVoltageCutoff)
 {
    //give discharge current 2°C extra so a hot battery from charging doesn't immobilize the vehicle
-   const float highTempDerate = HighTempDerating(52);
+   const float highTempDerate = HighTempDerating(53);
    const float maxDischargeCurrent = 500;
    float result = (minCellVoltage - cellVoltageCutoff) * 5;
    result = MIN(maxDischargeCurrent, result);

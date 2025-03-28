@@ -29,6 +29,7 @@
 #include "stm32_can.h"
 #include "canmap.h"
 #include "cansdo.h"
+#include "sdocommands.h"
 #include "canobd2.h"
 #include "terminal.h"
 #include "params.h"
@@ -488,9 +489,9 @@ static void SwitchVacuumPump()
    switch (Param::GetInt(Param::opmode))
    {
    case MOD_DRIVE:
-      if (vacuum > vacuumthresh)
+      if (vacuum > vacuumthresh && DigIo::dcdc_out.Get())
       {
-         DigIo::vacuum_out.Clear();
+         DigIo::vacuum_out.Clear(); //Turn on pump only when DC/DC converter is running
       }
       else if (vacuum < vacuumhyst)
       {
@@ -826,6 +827,10 @@ static void SwitchPositiveContactor()
 
    switch (Param::GetInt(Param::opmode))
    {
+   case MOD_OFF:
+      if (prechargeComplete && !noContactorPower)
+         DigIo::dcsw_out.Set();
+      break;
    case MOD_CHARGE:
    case MOD_DRIVE:
       DigIo::dcsw_out.Set();
@@ -1005,6 +1010,7 @@ extern "C" int main(void)
    CanSdo sdo(&c, &cm);
    MebBms mb(&c);
    TerminalCommands::SetCanMap(&cm);
+   SdoCommands::SetCanMap(&cm);
    HandleClear();
    sdo.SetNodeId(2);
 
@@ -1033,10 +1039,18 @@ extern "C" int main(void)
    while(1)
    {
       char dummy = 0;
+      CanSdo::SdoFrame* sdoFrame = sdo.GetPendingUserspaceSdo();
       t.Run();
+
       if (sdo.GetPrintRequest() == PRINT_JSON)
       {
          TerminalCommands::PrintParamsJson(&sdo, &dummy);
+      }
+
+      if (0 != sdoFrame)
+      {
+         SdoCommands::ProcessStandardCommands(sdoFrame);
+         sdo.SendSdoReply(sdoFrame);
       }
    }
 

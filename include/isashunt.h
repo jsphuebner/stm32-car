@@ -29,7 +29,7 @@ class IsaShunt : public CanCallback
 
       /** Default constructor */
       IsaShunt(CanHardware* hw, uint8_t enabledChannels = 0x4F);
-      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
+      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void HandleClear();
       void ResetCounters();
       void Stop();

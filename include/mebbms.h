@@ -20,14 +20,14 @@
 #define MEBBMS_H
 
 #include "canhardware.h"
-
+#include "picontroller.h"
 
 class MebBms : public CanCallback
 {
    public:
       /** Default constructor */
       MebBms(CanHardware* c);
-      bool HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
+      void HandleRx(uint32_t canId, uint32_t data[2], uint8_t dlc);
       void HandleClear();
       uint16_t GetCellVoltage(int idx) const { return cellVoltages[idx]; }
       float GetModuleTemperature(int idx) const { return temps[idx]; }
@@ -69,6 +69,7 @@ class MebBms : public CanCallback
       uint32_t lastReceived[NumCells / CellsPerCmu];
       bool balancerRunning[NumCells / CellsPerCmu];
       uint8_t balCounter;
+      PiController cvControllers[3];
 };
 
 #endif // MEBBMS_H
