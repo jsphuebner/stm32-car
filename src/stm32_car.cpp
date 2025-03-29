@@ -572,6 +572,25 @@ static void CalculateSoc()
    }
 }
 
+static void SendMitsubishiMessages()
+{
+   int opmode = Param::GetInt(Param::opmode);
+
+   if (opmode == MOD_CHARGE || opmode == MOD_CHARGESTART || opmode == MOD_CHARGEND)
+   {
+      uint32_t data[2];
+
+      data[0] = (Param::GetBool(Param::dout_evse) * 182) << 16;
+      data[1] = 0;
+
+      can->Send(645, data);
+
+      data[0] = Param::GetInt(Param::udcbms) + (((int)(Param::GetFloat(Param::chgcurlim) * 10)) << 16);
+
+      can->Send(646, data);
+   }
+}
+
 static void Ms100Task()
 {
    static int balanceCell = 0;
@@ -607,6 +626,7 @@ static void Ms100Task()
    CalcBatteryCurrentLimits();
    ProcessCruiseControlButtons();
    RunChaDeMo();
+   SendMitsubishiMessages();
    SwitchVacuumPump();
    SwitchDcDcConverterAndHeater();
    SwitchEvse();
@@ -966,7 +986,6 @@ static bool CanCallback(uint32_t id, uint32_t data[2], uint8_t dlc)
          DecodeCruiseControl(data[0]);
       break;
    default:
-      //LeafBMS::DecodeCAN(id, data, rtc_get_counter_val());
       break;
    }
    return false;
