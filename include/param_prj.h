@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.51.R-meb
+#define VER 1.52.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -24,12 +24,14 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 118
+//Next param id (increase when adding new parameter!): 120
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_BMS,      cellmin,     "mV",      2500,   3600,   3380,   115 ) \
     PARAM_ENTRY(CAT_BMS,      cellmax,     "mV",      4000,   4300,   4200,   116 ) \
     PARAM_ENTRY(CAT_BMS,      ahmax,       "Ah",      10,     200,    148,    117 ) \
+    PARAM_ENTRY(CAT_BMS,      chargekp,    "",        0,      200,    3,      118 ) \
+    PARAM_ENTRY(CAT_BMS,      chargeki,    "",        0,      200,    3,      119 ) \
     PARAM_ENTRY(CAT_ESP,      allowedspin, "km/h",    0,      50,     10,     5   ) \
     PARAM_ENTRY(CAT_ESP,      allowedlag,  "km/h",    -50,    0,      -5,     6   ) \
     PARAM_ENTRY(CAT_ESP,      tractionkp,  "",        0,      1000,   5,      7   ) \

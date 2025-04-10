@@ -53,19 +53,23 @@ MebBms::MebBms(CanHardware* c)
       balFlags[i] = 0;
    }
 
-   for (int i = 0; i < 3; i++)
-   {
-      cvControllers[i].SetGains(3, 3);
-      cvControllers[i].SetCallingFrequency(10);
-      cvControllers[i].ResetIntegrator();
-   }
-
    cvControllers[0].SetRef(FP_FROMINT(3950));
    cvControllers[1].SetRef(FP_FROMINT(4050));
    cvControllers[2].SetRef(FP_FROMINT(4200));
+   SetControllerGains(3, 3);
 
    canHardware->AddCallback(this);
    HandleClear();
+}
+
+void MebBms::SetControllerGains(int kp, int ki)
+{
+   for (int i = 0; i < 3; i++)
+   {
+      cvControllers[i].SetGains(kp, ki);
+      cvControllers[i].SetCallingFrequency(10);
+      cvControllers[i].ResetIntegrator();
+   }
 }
 
 void MebBms::HandleClear()

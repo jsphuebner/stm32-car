@@ -93,7 +93,7 @@ static modes StateMachine(modes mode)
                newMode = MOD_CHARGESTART;
          }
       }
-      else if (invStarted)
+      else if (invStarted && prechargeComplete)
          newMode = MOD_DRIVE;
       break;
    case MOD_CHARGESTART:
@@ -951,6 +951,10 @@ extern void Param::Change(Param::PARAM_NUM paramNum)
    case Param::ahmax:
       mebBms->SetMaximumAmpHours(Param::GetFloat(Param::ahmax));
       break;
+   case Param::chargekp:
+   case Param::chargeki:
+      mebBms->SetControllerGains(Param::GetInt(Param::chargekp), Param::GetInt(Param::chargeki));
+      break;
    default:
       break;
    }
@@ -1037,6 +1041,7 @@ extern "C" int main(void)
    mebBms = &mb;
    isa = &i;
    mebBms->SetMaximumAmpHours(Param::GetFloat(Param::ahmax));
+   mebBms->SetControllerGains(Param::GetInt(Param::chargekp), Param::GetInt(Param::chargeki));
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
