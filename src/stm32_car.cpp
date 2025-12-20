@@ -591,6 +591,24 @@ static void SendMitsubishiMessages()
    }
 }
 
+static void DetectReverse()
+{
+   static float ratio = 0, lockout = 0;
+   float wheelspeed = (Param::GetFloat(Param::wheelfr) + Param::GetFloat(Param::wheelfl)) / 2;
+   int motorspeed = Param::GetFloat(Param::speed);
+   if (ratio == 0) ratio = Param::GetFloat(Param::limratiothr) * 0.9f;
+
+   if (lockout > 0) lockout--;
+   if (wheelspeed > 1 && motorspeed > 100 && lockout == 0)
+   {
+      ratio = IIRFILTERF(ratio, motorspeed / wheelspeed, 1);
+      Param::SetFloat(Param::ratio, ratio);
+      bool derate = ratio > Param::GetFloat(Param::limratiothr);
+      Param::SetInt(Param::din_bms, derate);
+      if (derate) lockout = 10;
+   }
+}
+
 static void Ms100Task()
 {
    static int balanceCell = 0;
@@ -632,6 +650,7 @@ static void Ms100Task()
    SwitchEvse();
    SendVAG100msMessage();
    SetFuelGauge();
+   DetectReverse();
 
    if (!mebBms->Alive(rtc))
    {

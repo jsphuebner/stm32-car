@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.52.R-meb
+#define VER 1.53.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 120
+//Next param id (increase when adding new parameter!): 121
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_BMS,      cellmin,     "mV",      2500,   3600,   3380,   115 ) \
@@ -46,6 +46,7 @@
     PARAM_ENTRY(CAT_POWER,    fcsoclimit,  "%",       0,      100,    100,    111 ) \
     PARAM_ENTRY(CAT_POWER,    udclimit,    "V",       0,      600,    400,    92  ) \
     PARAM_ENTRY(CAT_POWER,    cdmcheckena, ONOFF,     0,      1,      1,      13  ) \
+    PARAM_ENTRY(CAT_POWER,    limratiothr, "",        0,      1000,   120,    120 ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumthresh,"dig",     0,      4095,   2700,   20  ) \
     PARAM_ENTRY(CAT_CONTACT,  vacuumhyst,  "dig",     0,      4095,   2500,   80  ) \
     PARAM_ENTRY(CAT_CONTACT,  dcdcresume,  "V",       10,     15,     12.5,   108 ) \
@@ -120,6 +121,7 @@
     VALUE_ENTRY(wheelfr,      "km/h",  2061 ) \
     VALUE_ENTRY(wheelrl,      "km/h",  2062 ) \
     VALUE_ENTRY(wheelrr,      "km/h",  2063 ) \
+    VALUE_ENTRY(ratio,        "",      2115 ) \
     VALUE_ENTRY(calcthrotmax, "%",     2064 ) \
     VALUE_ENTRY(calcthrotmin, "%",     2065 ) \
     VALUE_ENTRY(din_cruise,   ONOFF,   2023 ) \
@@ -143,7 +145,7 @@
     VALUE_ENTRY(rstreason,    RST,      2112 ) \
     VALUE_ENTRY(uptime,       "",      2104 ) \
 
-//Next value Id: 2115
+//Next value Id: 2116
 
 #define VERSTR STRINGIFY(4=VER)
 #define RST          "1=Pin, 2=POR, 4=Sw, 8=IWDG, 16=WWDG, 32=LowPower"
