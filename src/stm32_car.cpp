@@ -415,6 +415,8 @@ static void CalcBatteryCurrentLimits()
 static void SwitchDcDcConverterAndHeater()
 {
    static int dcdcDelay = 10;
+   static int heaterOnTime = 0;
+   bool heaterOn = false;
    bool heaterOnDrive = Param::Get(Param::tmpaux) < Param::Get(Param::heathresh);
    //Switch on heater when outside temperature is below threshold,
    //SoC is above threshold, heater command is on
@@ -453,27 +455,45 @@ static void SwitchDcDcConverterAndHeater()
    {
    case MOD_DRIVE:
       if (heaterOnDrive)
-         DigIo::heater_out.Set();
+         heaterOn = true;
       else
-         DigIo::heater_out.Clear();
+         heaterOn = false;
       break;
    case MOD_CHARGE:
       if (Param::GetBool(Param::heatcmd) && dcdcDelay == 0)
-         DigIo::heater_out.Set();
+         heaterOn = true;
       else
-         DigIo::heater_out.Clear();
+         heaterOn = false;
       break;
    case MOD_QUICKSTART:
    case MOD_QUICKCHARGE:
       if (Param::GetBool(Param::heatcmd) && DigIo::dcsw_out.Get() && dcdcDelay == 0)
-         DigIo::heater_out.Set();
+         heaterOn = true;
       else
-         DigIo::heater_out.Clear();
+         heaterOn = false;
       break;
    default:
-      DigIo::heater_out.Clear();
+         heaterOn = false;
       break;
    }
+
+   if (heaterOn)
+   {
+      Param::SetFixed(Param::heatmax, Param::Get(Param::heatpower));
+      heaterOnTime++;
+   }
+   else
+   {
+      Param::SetInt(Param::heatmax, 0);
+      heaterOnTime = 0;
+   }
+
+   uint8_t pScaled = FP_TOINT(Param::Get(Param::heatmax) * 10);
+   uint8_t tScaled = (heaterOnTime / 10) > Param::GetInt(Param::heattaper) ? 45 : 65;
+   tScaled-= Param::GetInt(Param::tmpaux);
+   tScaled = MIN(75, tScaled);
+   uint8_t data[2] = { pScaled, tScaled };
+   can->Send(1600, data, 2);
 }
 
 /* Control vacuum pump. It only runs in drive mode

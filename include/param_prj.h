@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.53.R-meb
+#define VER 1.54.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -24,7 +24,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 121
+//Next param id (increase when adding new parameter!): 123
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_BMS,      cellmin,     "mV",      2500,   3600,   3380,   115 ) \
@@ -53,7 +53,9 @@
     PARAM_ENTRY(CAT_CONTACT,  dcdcutoff,   "A",       0,     150,     15,     109 ) \
     TESTP_ENTRY(CAT_CONTACT,  cruiselight, ONOFF,     0,      1,      0,      112 ) \
     TESTP_ENTRY(CAT_CONTACT,  errlights,   ERRLIGHTS, 0,      255,    0,      113 ) \
+    PARAM_ENTRY(CAT_CONTACT,  heatpower,   "kW",      0,      6000,   0,      121  ) \
     PARAM_ENTRY(CAT_CONTACT,  heathresh,   "°C",      -20,    255,    10,     98  ) \
+    PARAM_ENTRY(CAT_CONTACT,  heattaper,   "s",       0,      10000,  1200,   122  ) \
     PARAM_ENTRY(CAT_CONTACT,  heatsoc,     "%",       0,      100,    30,     99  ) \
     TESTP_ENTRY(CAT_CONTACT,  heatcmd,     ONOFFFORCE,0,      2,      0,      105 ) \
     PARAM_ENTRY(CAT_GAUGE,    gaugeoffset, "dig",     0,      4096,   1000,   1   ) \
@@ -80,6 +82,7 @@
     VALUE_ENTRY(udcdc,        "V",     2021 ) \
     VALUE_ENTRY(bmschglim,    "A",     2049 ) \
     VALUE_ENTRY(power,        "kW",    2051 ) \
+    VALUE_ENTRY(heatmax,      "kW",    2116 ) \
     VALUE_ENTRY(chgcurlim,    "A",     2066 ) \
     VALUE_ENTRY(discurlim,    "A",     2082 ) \
     VALUE_ENTRY(limreason,    LIMRS,   2084 ) \
@@ -145,7 +148,7 @@
     VALUE_ENTRY(rstreason,    RST,      2112 ) \
     VALUE_ENTRY(uptime,       "",      2104 ) \
 
-//Next value Id: 2116
+//Next value Id: 2117
 
 #define VERSTR STRINGIFY(4=VER)
 #define RST          "1=Pin, 2=POR, 4=Sw, 8=IWDG, 16=WWDG, 32=LowPower"
