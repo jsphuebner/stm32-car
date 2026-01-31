@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#define VER 1.54.R-meb
+#define VER 1.55.R-meb
 
 
 /* Entries must be ordered as follows:
@@ -112,11 +112,11 @@
     VALUE_ENTRY(tmpbat6,      "°C",    2107 ) \
     VALUE_ENTRY(tmpbat7,      "°C",    2108 ) \
     VALUE_ENTRY(tmpbat8,      "°C",    2109 ) \
-    VALUE_ENTRY(tmphs,        "°C",    2019 ) \
+    VALUE_ENTRY(tmpccs,       "°C",    2019 ) \
     VALUE_ENTRY(tmpm,         "°C",    2020 ) \
     VALUE_ENTRY(tmpaux,       "°C",    2072 ) \
     VALUE_ENTRY(tmpdcdc,      "°C",    2080 ) \
-    VALUE_ENTRY(tmpecu,       "°C",    2083 ) \
+    VALUE_ENTRY(tmpheater,    "°C",    2083 ) \
     VALUE_ENTRY(canio,        CANIOS,  2022 ) \
     VALUE_ENTRY(cruisespeed,  "rpm",   2059 ) \
     VALUE_ENTRY(cruisestt,CRUISESTATES,2055 ) \

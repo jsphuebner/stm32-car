@@ -489,7 +489,7 @@ static void SwitchDcDcConverterAndHeater()
    }
 
    uint8_t pScaled = FP_TOINT(Param::Get(Param::heatmax) * 10);
-   uint8_t tScaled = (heaterOnTime / 10) > Param::GetInt(Param::heattaper) ? 45 : 65;
+   uint8_t tScaled = (heaterOnTime / 10) > Param::GetInt(Param::heattaper) ? 55 : 65;
    tScaled-= Param::GetInt(Param::tmpaux);
    tScaled = MIN(75, tScaled);
    uint8_t data[2] = { pScaled, tScaled };
